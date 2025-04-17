@@ -27,9 +27,7 @@ def is_prod_mode() -> bool:
 
 def slack_channel(channel: Optional[str] = None) -> str:
     "Returns a slack channel ID"
-    if not is_prod_mode(): #always send to dev
-        return "slack_data_pipeline_dev"
-    
+        
     valid_channels = [
         'slack_data_pipeline', 'slack_data_pipeline_dev', 'slack_data_pipeline_data_quality'
     ]
@@ -37,6 +35,9 @@ def slack_channel(channel: Optional[str] = None) -> str:
         return channel
     if channel is not None and channel not in valid_channels:
         LOGGER.warning(f"Channel {channel} is not valid. Defaulting to `slack_data_pipeline`.")
+        return "slack_data_pipeline"
+    if not is_prod_mode(): #if not specified, send to dev
+        return "slack_data_pipeline_dev"
     return "slack_data_pipeline"
 
 def task_fail_slack_alert(
