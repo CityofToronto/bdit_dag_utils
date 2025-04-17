@@ -11,8 +11,8 @@ from airflow.decorators import dag
 try:
     repo_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     sys.path.insert(0, repo_path)
-    from dags.dag_functions import task_fail_slack_alert, slack_alert_data_quality
-    from dags.custom_operators import SQLCheckOperatorWithReturnValue
+    from utils.dag_functions import slack_alert_data_quality
+    from utils.custom_operators import SQLCheckOperatorWithReturnValue
 except:
     raise ImportError("Cannot import slack alert functions")
     
@@ -31,7 +31,7 @@ default_args = {
     'email_on_success': False,
     'retries': 0,
     'retry_delay': timedelta(minutes=5),
-    'on_failure_callback': task_fail_slack_alert
+    'on_failure_callback': slack_alert_data_quality
 }
 
 @dag(
@@ -39,7 +39,7 @@ default_args = {
     default_args=default_args, 
     schedule='0 8 * * *',
     doc_md = doc_md,
-    tags=["bdit_data-sources", "monitoring"],
+    tags=["bdit_dag_utils", "monitoring"],
     template_searchpath=os.path.join(repo_path, 'sql'),
     catchup=False
 )
@@ -55,14 +55,12 @@ def monitor_db_size():
     )
     
     check_fast_growing_tables = SQLCheckOperatorWithReturnValue(
-        on_failure_callback=slack_alert_data_quality,
         task_id="check_fast_growing_tables",
         sql="select-fast_growing_tables.sql",
         conn_id="ref_bot"
     )
 
     check_fast_growing_db = SQLCheckOperatorWithReturnValue(
-        on_failure_callback=slack_alert_data_quality,
         task_id="check_fast_growing_db",
         sql="select-check_db_growth.sql",
         conn_id="ref_bot"
