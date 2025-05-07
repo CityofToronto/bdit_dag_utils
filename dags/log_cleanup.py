@@ -8,6 +8,7 @@ to avoid those getting too big.
 import os
 import sys
 import pendulum
+from functools import partial
 from airflow import DAG
 
 AIRFLOW_DAGS = os.path.dirname(os.path.realpath(__file__))
@@ -49,7 +50,7 @@ def create_dag(filepath, doc, start_date, schedule_interval):
       'depends_on_past': False,
       'owner': ','.join(names),
       'start_date': start_date,
-      'on_failure_callback': task_fail_slack_alert
+      'on_failure_callback': partial(task_fail_slack_alert, channel = 'slack_data_pipeline')
     }
   
     dag = DAG(
