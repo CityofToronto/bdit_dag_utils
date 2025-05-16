@@ -24,7 +24,7 @@ from airflow.decorators import dag, task
 from airflow.models import Variable
 from airflow.hooks.base import BaseHook
 from airflow.exceptions import AirflowFailException
-from airflow.operators.python import get_current_context
+from airflow.sdk import get_current_context
 
 # absolute path to the repo
 REPO_PATH = os.path.abspath(
