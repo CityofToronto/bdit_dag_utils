@@ -9,16 +9,15 @@ import os
 import sys
 import pendulum
 from functools import partial
-from airflow import DAG
 
 AIRFLOW_DAGS = os.path.dirname(os.path.realpath(__file__))
 AIRFLOW_ROOT = os.path.dirname(AIRFLOW_DAGS)
 AIRFLOW_TASKS = os.path.join(AIRFLOW_ROOT, 'tasks')
 AIRFLOW_TASKS_LIB = os.path.join(AIRFLOW_TASKS, 'lib')
 
+from airflow.sdk import DAG, Variable
 from airflow.configuration import conf
-from airflow.operators.bash import BashOperator
-from airflow.models import Variable 
+from airflow.providers.standard.operators.bash import BashOperator
 
 dag_name = 'log_cleanup'
 

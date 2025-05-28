@@ -9,7 +9,7 @@ from typing import Optional, Callable, Any, Union
 from functools import partial
 from psycopg2 import sql, Error
 
-from airflow.models import Variable
+from airflow.sdk import Variable
 from airflow.hooks.base import BaseHook
 from airflow.providers.slack.notifications.slack_webhook import SlackWebhookNotifier
 from airflow.exceptions import AirflowFailException
