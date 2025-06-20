@@ -21,7 +21,7 @@ if [ $# -eq 0 ]; then
 else
     source $1
 fi
-# 2. prxoy username & password for on-prem servers
+# 2. proxy username & password for on-prem servers
 if [ ${ON_PREM_SERVER,,} == 'true' ]; then
     echo "Enter a Novell username and password to set up the proxy settings"
     read -p "Username:" proxy_username
@@ -54,18 +54,21 @@ if [ ${UPGRADE,,} == 'true' ] && [ ${backup_flag,,} == 'y' ]; then
     # setup config
     cp $1 "${BACKUP_PATH}/files"
     # service files
-    cp /etc/systemd/system/airflow-webserver.service "${BACKUP_PATH}/files"
+    cp /etc/systemd/system/airflow-api-server.service "${BACKUP_PATH}/files"
+    cp /etc/systemd/system/airflow-dag-processor.service "${BACKUP_PATH}/files"
     cp /etc/systemd/system/airflow-scheduler.service "${BACKUP_PATH}/files"
     # backup the database
     echo "Enter the password of the PostgreSQL user: $PG_ADMIN"
     pg_dump -h $PG_HOST_ADDRESS -U $PG_ADMIN --create $OLD_PG_DATABASE > "${BACKUP_PATH}/files/database_`date +'%Y_%m_%d_%H_%M'`"
     # stop Airflow
     if (cat /etc/os-release | grep '^ID=.*' | cut -d= -f2 | grep -q 'rhel'); then
-        pbrun systemctl stop airflow-webserver
-        pbrun systemctl stop airflow-scheduler
+        pbrun /bin/systemctl stop airflow-scheduler
+        pbrun /bin/systemctl stop airflow-api-server
+        pbrun /bin/systemctl stop airflow-dag-processor
     elif (cat /etc/os-release | grep '^ID=.*' | cut -d= -f2 | grep -q 'ubuntu'); then
-        sudo systemctl stop airflow-webserver
-        sudo systemctl stop airflow-scheduler
+        sudo /bin/systemctl stop airflow-scheduler
+        sudo /bin/systemctl stop airflow-api-server
+        sudo /bin/systemctl stop airflow-dag-processor
     fi
 fi
 
@@ -181,32 +184,11 @@ else
 fi
 airflow db check && echo "Initialized Airflow database successfully..."
 
-# 7. create/update the service files
-read -p "Do you want to update Airflow service files? [Y/n]" update_services
+# 6. create/update the service files
+# We don't have anything in our service files that changes when we upgrade, since we use the same airflow home and airflow_venv locations.
+# Need to manually create new service files at this point during Airflow 3 upgrade as root.
+read -p "If you to update the service files at /etc/systemd/system/, do so now then enter Y to reload service files." update_services
 if [ ${update_services,,} == 'y' ]; then
-    if [ ${UPGRADE,,} == 'true' ]; then
-        echo "Updating the service files..."
-        ENV_FILE_=`echo $ENV_FILE | sed -r 's/\//\\\\\//g'`
-        AIRFLOW_VENV_=`echo $AIRFLOW_VENV | sed -r 's/\//\\\\\//g'`
-        AIRFLOW_HOME_=`echo $AIRFLOW_HOME | sed -r 's/\//\\\\\//g'`
-        # webserver
-        cp "/etc/systemd/system/airflow-webserver.service" "${AIRFLOW_HOME}/temp"
-        # update_file "\(^Environment.*DEPLOYMENT.*$\)" "Environment='DEPLOYMENT=${DEPLOYMENT}'" "${AIRFLOW_HOME}/temp"
-        update_file "\(^EnvironmentFile.*$\)" "EnvironmentFile=${ENV_FILE_}" "${AIRFLOW_HOME}/temp"
-        update_file "\(^ExecStart.*$\)" "ExecStart= /bin/bash -c 'source ${AIRFLOW_VENV_}/bin/activate ; ${AIRFLOW_VENV_}/bin/airflow webserver -p ${PG_PORT}  --pid ${AIRFLOW_HOME_}/webserver.pid'" "${AIRFLOW_HOME}/temp"
-        cat "${AIRFLOW_HOME}/temp" > "/etc/systemd/system/airflow-webserver.service"
-        rm "${AIRFLOW_HOME}/temp"
-        # scheduler
-        cp "/etc/systemd/system/airflow-scheduler.service" "${AIRFLOW_HOME}/temp"
-        # update_file "\(^Environment.*DEPLOYMENT.*$\)" "Environment='DEPLOYMENT=${DEPLOYMENT}'" "${AIRFLOW_HOME}/temp"
-        update_file "\(^EnvironmentFile.*$\)" "EnvironmentFile=${ENV_FILE_}" "${AIRFLOW_HOME}/temp"
-        update_file "\(^ExecStart.*$\)" "ExecStart= /bin/bash -c 'source ${AIRFLOW_VENV_}/bin/activate ; ${AIRFLOW_VENV_}/bin/airflow scheduler'" "${AIRFLOW_HOME}/temp"
-        cat "${AIRFLOW_HOME}/temp" > "/etc/systemd/system/airflow-scheduler.service"
-        rm "${AIRFLOW_HOME}/temp"
-    else
-        echo "Cannot create new service files: need permissions to create files in /etc/systemd/system/"
-    fi
-
     if (cat /etc/os-release | grep '^ID=.*' | cut -d= -f2 | grep -q 'rhel'); then
         pbrun systemctl daemon-reload
     elif (cat /etc/os-release | grep '^ID=.*' | cut -d= -f2 | grep -q 'ubuntu'); then
@@ -214,11 +196,13 @@ if [ ${update_services,,} == 'y' ]; then
     fi
 fi
 
-# 8. restart Airflow services
+# 7. restart Airflow services
 if (cat /etc/os-release | grep '^ID=.*' | cut -d= -f2 | grep -q 'rhel'); then
-    pbrun systemctl start airflow-webserver
-    pbrun systemctl start airflow-scheduler
+    pbrun /bin/systemctl start airflow-scheduler
+    pbrun /bin/systemctl start airflow-api-server
+    pbrun /bin/systemctl start airflow-dag-processor
 elif (cat /etc/os-release | grep '^ID=.*' | cut -d= -f2 | grep -q 'ubuntu'); then
-    sudo systemctl start airflow-webserver
-    sudo systemctl start airflow-scheduler
+    sudo /bin/systemctl start airflow-scheduler
+    sudo /bin/systemctl start airflow-api-server
+    sudo /bin/systemctl start airflow-dag-processor
 fi
