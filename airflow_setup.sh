@@ -101,12 +101,12 @@ PYTHON_VERSION="$(python3 --version | cut -d " " -f 2 | cut -d "." -f 1-2)"
 CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 if [ $ON_PREM_SERVER == 'True' ]; then
     python3 -m pip install --proxy=http://$proxy_username:$proxy_pass@proxy.toronto.ca:8080 --upgrade pip
-    python3 -m pip install --proxy=http://$proxy_username:$proxy_pass@proxy.toronto.ca:8080 "apache-airflow[celery,postgres,google,slack,ftp,http]==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
+    python3 -m pip install --proxy=http://$proxy_username:$proxy_pass@proxy.toronto.ca:8080 "apache-airflow[celery,postgres,slack,http,fab]==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
+    echo 'Successfully installed Airflow '`airflow version`
 else
     python3 -m pip install --upgrade pip
-    python3 -m pip install "apache-airflow[celery,postgres,google,slack,ftp,http]==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
+    echo "Airflow constraints must be manually downloaded from $CONSTRAINT_URL"
 fi
-echo 'Successfully installed Airflow '`airflow version`
 
 # 3. set up a new Airfow database if needed
 read -sp "Enter the password for PostgreSQL user '${PG_USERNAME}':" pg_username_pass
