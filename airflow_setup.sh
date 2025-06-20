@@ -41,7 +41,7 @@ fi
 # backup old Airflow installation if needed
 #==========================================
 read -p "Do you want to backup Airflow files? [Y/n]" backup_flag
-if [ ${UPGRADE,,} == 'true' ] && [ ${backup_flag,,} == 'y' ]; then
+if [ ${backup_flag,,} == 'y' ]; then
     # create the backup folder if it doesn't exist
     [[ ! -d $BACKUP_PATH ]] && mkdir $BACKUP_PATH
     echo "Backing up the old Airflow installation into ${BACKUP_PATH}"
@@ -108,25 +108,6 @@ else
     echo "Airflow constraints must be manually downloaded from $CONSTRAINT_URL"
 fi
 
-# 3. set up a new Airfow database if needed
-read -sp "Enter the password for PostgreSQL user '${PG_USERNAME}':" pg_username_pass
-echo
-if [ ${UPGRADE,,} == 'true' ]; then
-    echo "The old database will be upgraded..."
-    PG_DATABASE=$OLD_PG_DATABASE
-else
-    echo "Creating a new database ${PG_DATABASE}..."
-    tmpfile=$(mktemp ./.tmp.XXXXXX)
-    echo "CREATE DATABASE ${PG_DATABASE};GRANT ALL PRIVILEGES ON DATABASE ${PG_DATABASE} TO ${PG_USERNAME};ALTER DATABASE ${PG_DATABASE} SET search_path = public;" > $tmpfile
-    psql -h $PG_HOST_ADDRESS -U $PG_ADMIN -f "$tmpfile"
-    rm "$tmpfile"
-
-    # set up Airflow-PG connection
-    echo "Updating the credentials for PostgreSQL user ${PG_USERNAME}..."
-    echo "${PG_HOST_ADDRESS}:5432:${PG_DATABASE}:${PG_USERNAME}:${pg_username_pass}" >> ~/.pgpass
-    chmod 0600 ~/.pgpass
-fi
-
 # 4. set up Airflow env vars
 if [[ -f "${INPUT_ENV_FILE}" ]]; then
     if [[ -f "${ENV_FILE}" ]]; then
@@ -145,13 +126,14 @@ else
 fi
 
 # 5. initizlize/upgrade the database
-if [ ${UPGRADE,,} == 'true' ]; then
+read -p "Do you want to migrate the database? [Y/n]" migrate_flag
+if [ ${migrate_flag,,} == 'y' ]; then
     echo "Migrating Airflow database..."
     airflow db migrate
     echo "Checking if migrations successful..."
     airflow db check-migrations
+    airflow db check && echo "Initialized Airflow database successfully..."
 fi
-airflow db check && echo "Initialized Airflow database successfully..."
 
 # 6. create/update the service files
 # We don't have anything in our service files that changes when we upgrade, since we use the same airflow home and airflow_venv locations.
