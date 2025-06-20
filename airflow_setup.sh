@@ -128,68 +128,12 @@ else
 fi
 
 # 4. set up Airflow env vars
-if [[ -f "${ENV_FILE}" ]]; then
-    read -p "Do you want to overwrite the environment variable file ${ENV_FILE}? [Y/n]" overwrite_flag
-    if [ ${overwrite_flag,,} == 'n' ]; then
-        exit 1
-    else
-        rm -f "${ENV_FILE}"
-    fi
-fi
-touch $ENV_FILE && chmod 777 $ENV_FILE
-
-read -sp 'Enter a new Airflow Fernet Key:' airflow_fernet
-echo
-ip_address=localhost
-echo "Adding Airflow environment variables to ${ENV_FILE}..."
-cat > $ENV_FILE << EOM
-AIRFLOW_HOME=${AIRFLOW_HOME}
-AIRFLOW__WEBSERVER__RBAC=True
-AIRFLOW__WEBSERVER__AUTHENTICATE=True
-AIRFLOW__WEBSERVER__AUTH_BACKEND=airflow.contrib.auth.backends.password_auth
-AIRFLOW__CORE__FERNET_KEY=${airflow_fernet}
-AIRFLOW__WEBSERVER__BASE_URL="https://${ip_address}/airflow"
-AIRFLOW__CLI__ENDPOINT_URL="https://${ip_address}:${PG_PORT}"
-POSTGRES_HOST=${PG_HOST_ADDRESS}
-POSTGRES_PORT=5432
-POSTGRES_DB=${PG_DATABASE}
-POSTGRES_USER=${PG_USERNAME}
-AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${PG_USERNAME}:${pg_username_pass}@${PG_HOST_ADDRESS}:5432/${PG_DATABASE}
-POSTGRES_PASSWORD=${pg_username_pass}
-AIRFLOW__CORE__EXECUTOR=LocalExecutor
-AIRFLOW__USAGE_DATA_COLLECTION__ENABLED=False
-EOM
-
-# 5. update Airflow configuration file
-echo "Updating Airflow configurations..."
-# [core]
-DAGS_FOLDER_=`echo $DAGS_FOLDER | sed -r 's/\//\\\\\//g'`
-update_file "\(^dags_folder =.*$\)" "dags_folder = ${DAGS_FOLDER_}" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^default_timezone =.*$\)" "default_timezone = America\/Toronto" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^executor =.*$\)" "executor = LocalExecutor" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^sql_alchemy_conn =.*$\)" "sql_alchemy_conn = postgresql+psycopg2:\/\/${PG_USERNAME}@${PG_HOST_ADDRESS}:5432\/${PG_DATABASE}" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^load_examples =.*$\)" "load_examples = False" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^load_default_connections =.*$\)" "load_default_connections = False" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^fernet_key =.*$\)" "fernet_key = ${airflow_fernet}" "${AIRFLOW_HOME}/airflow.cfg"
-# [logging]
-update_file "\(^base_log_folder =.*$\)" "base_log_folder = \/etc\/airflow\/logs" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^dag_processor_manager_log_location =.*$\)" "dag_processor_manager_log_location = \/etc\/airflow\/logs\/dag_processor_manager\/dag_processor_manager.log" "${AIRFLOW_HOME}/airflow.cfg"
-# [cli]
-update_file "\(^endpoint_url =.*$\)" "endpoint_url = http:\/\/localhost:${PG_PORT}\/airflow" "${AIRFLOW_HOME}/airflow.cfg"
-# [webserver]
-update_file "\(^base_url =.*$\)" "base_url = https:\/\/localhost\/airflow" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^default_ui_timezone =.*$\)" "default_ui_timezone = America\/Toronto" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^web_server_port =.*$\)" "web_server_port = ${PG_PORT}" "${AIRFLOW_HOME}/airflow.cfg"
-update_file "\(^enable_proxy_fix =.*$\)" "enable_proxy_fix = True" "${AIRFLOW_HOME}/airflow.cfg"
-# update_file "\(^auth_backend =.*$\)" "auth_backend = airflow.contrib.auth.backends.password_auth" "${AIRFLOW_HOME}/airflow.cfg"
-
-# 6. initizlize/upgrade the database
+# 5. initizlize/upgrade the database
 if [ ${UPGRADE,,} == 'true' ]; then
-    echo "Upgrading Airflow database..."
-    airflow db upgrade
-else
-    echo "Initializing Airflow database..."
-    airflow db init
+    echo "Migrating Airflow database..."
+    airflow db migrate
+    echo "Checking if migrations successful..."
+    airflow db check-migrations
 fi
 airflow db check && echo "Initialized Airflow database successfully..."
 
