@@ -96,16 +96,16 @@ python3 -m venv $AIRFLOW_VENV
 source $AIRFLOW_VENV/bin/activate
 
 # 2. install Airflow
-echo "Installing Airflow ${AIRFLOW_VERSION}..."
 PYTHON_VERSION="$(python3 --version | cut -d " " -f 2 | cut -d "." -f 1-2)"
+echo "Installing Airflow ${AIRFLOW_VERSION} on ${PYTHON_VERSION}..."
 CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 if [ $ON_PREM_SERVER == 'True' ]; then
     python3 -m pip install --proxy=http://$proxy_username:$proxy_pass@proxy.toronto.ca:8080 --upgrade pip
-    python3 -m pip install --proxy=http://$proxy_username:$proxy_pass@proxy.toronto.ca:8080 "apache-airflow[celery,postgres,slack,http,fab]==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
+    python3 -m pip install --proxy=http://$proxy_username:$proxy_pass@proxy.toronto.ca:8080 "apache-airflow[${AIRFLOW_EXTRAS}]==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
     echo 'Successfully installed Airflow '`airflow version`
 else
     python3 -m pip install --upgrade pip
-    echo "Airflow constraints must be manually downloaded from $CONSTRAINT_URL"
+    echo "Airflow constraints must be manually downloaded and installed from $CONSTRAINT_URL via requirements.in"
 fi
 
 # 4. set up Airflow env vars
