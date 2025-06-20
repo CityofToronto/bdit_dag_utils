@@ -3,6 +3,7 @@
 # exit upon any error
 set -e
 
+#this can be used to update config, if necessary (not currently in use)
 update_file() {
     # replace pattern $1 with text $2 in file $3
     # update_file "\(^dags_folder = .*$\)" "dags_folder = abcd" "test"
@@ -10,7 +11,6 @@ update_file() {
         echo "Failed to update $1"
     fi
 }
-
 
 #Check Airflow home folder has more than 2GB free for backup
 required_GB=2
@@ -128,6 +128,22 @@ else
 fi
 
 # 4. set up Airflow env vars
+if [[ -f "${INPUT_ENV_FILE}" ]]; then
+    if [[ -f "${ENV_FILE}" ]]; then
+        read -p "Do you want to overwrite the environment variable file ${ENV_FILE}? [Y/n]" overwrite_flag
+        if [ ${overwrite_flag,,} == 'y' ]; then
+            cp2 "${INPUT_ENV_FILE}" "${ENV_FILE}"
+        fi
+    else
+        cp2 "${INPUT_ENV_FILE}" "${ENV_FILE}"
+    fi
+    chmod 777 $ENV_FILE
+    set -a; source $ENV_FILE; set +a
+else
+    echo "The environment variable file ${INPUT_ENV_FILE} doesn't exist"
+    exit 1
+fi
+
 # 5. initizlize/upgrade the database
 if [ ${UPGRADE,,} == 'true' ]; then
     echo "Migrating Airflow database..."
