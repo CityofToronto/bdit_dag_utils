@@ -117,6 +117,7 @@ default_args = {
     catchup=False,
     max_active_runs=5,
     doc_md=__doc__,
+    tags=["bdit_dag_utils", "monitoring"],
     schedule="0 9 * * *",
 )
 def monitor_airflow_health() -> None:
