@@ -3,6 +3,9 @@
 # exit upon any error
 set -e
 
+# copy file $1 to $2 if $1 exists
+cp2() { [[ -e $1 ]] && cp $1 $2; }
+
 #this can be used to update config, if necessary (not currently in use)
 update_file() {
     # replace pattern $1 with text $2 in file $3
@@ -31,7 +34,7 @@ else
     source $1
 fi
 # 2. proxy username & password for on-prem servers
-if [ ${ON_PREM_SERVER,,} == 'true' ]; then
+if [ ${USE_PROXY,,} == 'true' ]; then
     echo "Enter a Novell username and password to set up the proxy settings"
     read -p "Username:" proxy_username
     read -sp "Password:" proxy_pass
