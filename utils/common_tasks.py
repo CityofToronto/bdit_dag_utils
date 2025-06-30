@@ -40,15 +40,25 @@ def get_variable(var_name:str) -> list:
     return Variable.get(var_name, deserialize_json=True)
 
 @task(map_index_template="{{ dest_table_name }}")
-def copy_table(conn_id:str, table:Tuple[str, str], **context) -> None:
+def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
     """Copies ``table[0]`` table into ``table[1]`` after truncating it.
 
     Args:
         conn_id: The name of Airflow connection to the database
-        table: A tuple containing the source table to be copied in the format
-            ``schema.table``, and the destination table in the same format
-            ``schema.table``.
+        table: A tuple containing 2-3 entries, each in the format ``schema.table``:
+            - the source TABLE/VIEW/MATERIALIZED VIEW (table[0]) to be copied from
+            - the destination TABLE/updatable VIEW (table[1]) to inserted into
+            - An optional third TABLE entry (table[2]) which is the destination for
+            the table comment when table[1] destination is an updatable VIEW and not a TABLE
     """
+    try:
+        assert len(table) >= 2
+        assert len(table) <= 3
+    except AssertionError:
+        raise AirflowFailException(
+            f"Input `table` tuple should have length between 2 and 3, got {len(table)}."
+        )
+    
     #name mapped task
     from airflow.operators.python import get_current_context
     context = get_current_context()
@@ -67,19 +77,28 @@ def copy_table(conn_id:str, table:Tuple[str, str], **context) -> None:
         raise AirflowFailException(
             f"Invalid destination table (expected schema.table, got {table[1]})"
         )
+    try:
+        comment_schema, comment_table = table[2].split(".")
+    except IndexError:
+        comment_schema, comment_table = dst_schema, dst_table
+    except ValueError:
+        raise AirflowFailException(
+            f"Invalid comment destination table (expected schema.table, got {table[2]})"
+        )
 
     LOGGER.info(f"Copying {table[0]} to {table[1]}.")
 
     con = PostgresHook(conn_id).get_conn()
-    # truncate the destination table
+    # delete all rows from the destination table
+    # delete used instead of truncate to support updatable views
     truncate_query = sql.SQL(
-        "TRUNCATE {}.{}"
+        "DELETE FROM {}.{}"
         ).format(
             sql.Identifier(dst_schema), sql.Identifier(dst_table)
         )
     # get the column names of the source table
     source_columns_query = sql.SQL(
-        "SELECT column_name FROM information_schema.columns "
+        "SELECT column_name FROM information_schema.columns"
         "WHERE table_schema = %s AND table_name = %s;"
         )
     # copy the table's comment, extended with additional info (source, time)
@@ -97,7 +116,7 @@ def copy_table(conn_id:str, table:Tuple[str, str], **context) -> None:
         ).format(
             sql.Identifier(src_schema), sql.Identifier(src_table),
             sql.Identifier(src_schema), sql.Identifier(src_table),
-            sql.Identifier(dst_schema), sql.Identifier(dst_table),
+            sql.Identifier(comment_schema), sql.Identifier(comment_table),
         )
     
     try:
