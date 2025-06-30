@@ -98,8 +98,8 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
         )
     # get the column names of the source table
     source_columns_query = sql.SQL(
-        "SELECT column_name FROM information_schema.columns"
-        "WHERE table_schema = %s AND table_name = %s;"
+        """SELECT column_name FROM information_schema.columns
+        WHERE table_schema = %s AND table_name = %s;"""
         )
     # copy the table's comment, extended with additional info (source, time)
     comment_query = sql.SQL(
