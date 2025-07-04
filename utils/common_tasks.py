@@ -77,14 +77,15 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
         raise AirflowFailException(
             f"Invalid destination table (expected schema.table, got {table[1]})"
         )
-    try:
-        comment_schema, comment_table = table[2].split(".")
-    except IndexError:
+    if len(table) == 3:
+        try:
+            comment_schema, comment_table = table[2].split(".")
+        except ValueError:
+            raise AirflowFailException(
+                f"Invalid comment destination table (expected schema.table, got {table[2]})"
+            )
+    elif len(table) == 2:
         comment_schema, comment_table = dst_schema, dst_table
-    except ValueError:
-        raise AirflowFailException(
-            f"Invalid comment destination table (expected schema.table, got {table[2]})"
-        )
 
     LOGGER.info(f"Copying {table[0]} to {table[1]}.")
 
