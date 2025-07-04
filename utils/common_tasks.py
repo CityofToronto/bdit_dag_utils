@@ -105,18 +105,37 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
     comment_query = sql.SQL(
         r"""
             DO $$
-            DECLARE comment_ text;
+            DECLARE
+                base_comment text;
+                comment_ text;
+                object_type text;
             BEGIN
-                SELECT obj_description('{}.{}'::regclass)
-                    || 'Copied from {}.{} by bigdata repliactor DAG at '
+                SELECT obj_description('{dst_sch}.{dst_tbl}'::regclass) INTO base_comment;
+                SELECT
+                    --extract the existing comment before "Copied from" if exists
+                    COALESCE(substring(base_comment FROM '^(.*?)(\n)*Copied from'), base_comment)
+                    || '\nCopied from {src_sch}.{src_tbl} by bigdata repliactor DAG at '
                     || to_char(now() AT TIME ZONE 'EST5EDT', 'yyyy-mm-dd HH24:MI') || '.' INTO comment_;
-                EXECUTE format('COMMENT ON TABLE {}.{} IS %L', comment_);
-            END $$;
+
+                SELECT CASE pg_class.relkind WHEN 'r' THEN 'TABLE' WHEN 'v' THEN 'VIEW' END INTO object_type
+                FROM pg_catalog.pg_namespace
+                JOIN pg_catalog.pg_class ON pg_class.relnamespace = pg_namespace.oid
+                WHERE
+                    pg_namespace.nspname = '{dst_sch}'
+                    AND pg_class.relname = '{dst_tbl}';
+
+                IF object_type = 'TABLE' THEN
+                    EXECUTE format('COMMENT ON TABLE {dst_sch}.{dst_tbl} IS %L', comment_);
+                ELSIF object_type = 'VIEW' THEN 
+                    EXECUTE format('COMMENT ON VIEW {dst_sch}.{dst_tbl} IS %L', comment_);
+                END IF;
+            END $$
         """
         ).format(
-            sql.Identifier(src_schema), sql.Identifier(src_table),
-            sql.Identifier(src_schema), sql.Identifier(src_table),
-            sql.Identifier(comment_schema), sql.Identifier(comment_table),
+            src_sch = sql.Identifier(src_schema),
+            src_tbl = sql.Identifier(src_table),
+            dst_sch = sql.Identifier(comment_schema),
+            dst_tbl = sql.Identifier(comment_table)
         )
     
     try:
