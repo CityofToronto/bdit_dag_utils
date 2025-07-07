@@ -48,9 +48,10 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
         table: A tuple containing 2-3 entries, each in the format ``schema.table``:
             - the source TABLE/VIEW/MATERIALIZED VIEW (table[0]) to be copied from
             - the destination TABLE/updatable VIEW (table[1]) to inserted into
-            - An optional third TABLE entry (table[2]) which is the destination for
-            the table comment when table[1] destination is an updatable VIEW and not a TABLE
+            - An optional third TABLE entry (table[2]) which is either a TABLE or a VIEW 
+            (in case table[1] destination is an updatable VIEW) to refresh the comment on
     """
+    #check correct input length
     try:
         assert len(table) >= 2
         assert len(table) <= 3
@@ -64,7 +65,7 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
     context = get_current_context()
     context["dest_table_name"] = table[1]
     
-    # separate tables and schemas
+    # separate tables and schemas for each of the 2-3 inputs
     try:
         src_schema, src_table = table[0].split(".")
     except ValueError:
@@ -137,10 +138,11 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
                     sql.SQL(', ').join(map(sql.Identifier, dst_columns)),
                     sql.Identifier(src_schema), sql.Identifier(src_table)
                 )
-            # identify table comment and object type
+            # identify table comment
             cur.execute(existing_comment_query)
             comment = cur.fetchone()[0]
             LOGGER.info(f"Commenting on {comment_schema}.{comment_table}: %s", comment)
+            # identify object type and prepare comment query
             cur.execute(obj_type_query, [comment_schema, comment_table])
             object_type = cur.fetchone()[0]
             comment_query = sql.SQL('COMMENT ON {obj_type} {dst_sch}.{dst_tbl} IS %s').format(
