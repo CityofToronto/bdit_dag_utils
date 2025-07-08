@@ -16,7 +16,7 @@ update_file() {
 }
 
 #Check Airflow home folder has more than 2GB free for backup
-required_GB=2
+required_GB=3
 if [ $(df $HOME | awk 'NR==2 {print $4}') -lt $(($required_GB * 1024 * 1024)) ]; then
     echo "Error: Less than $required_GB GB free in $HOME"
     exit 128
