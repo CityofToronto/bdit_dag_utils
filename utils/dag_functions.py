@@ -53,14 +53,14 @@ def task_fail_slack_alert(
     emoji: Optional[str] = ':large_red_square:'
 ) -> Any:
     """Sends Slack task-failure notifications.
-
+    
     Failure callback function to send notifications to Slack upon the failure
     of an Airflow task.
-
+    
     Example:
         This function can be passed as a failure callback to DAG's default_args
         like this::
-
+        
             import sys
             import os
             import pendulum
@@ -83,7 +83,7 @@ def task_fail_slack_alert(
                         task_fail_slack_alert, extra_msg="My custom message"
                     )
                 )
-
+                
     Args:
         context: The calling Airflow task's context
         extra_msg: An extra string message or a function that
@@ -105,12 +105,13 @@ def task_fail_slack_alert(
     owners = context.get('dag').owner.split(',')
     list_names = " ".join([slack_ids.get(name, name) for name in owners])
     # get the extra message from the calling task, if provided
-    extra_msg_from_task = task_instance.xcom_pull(
-            task_ids=task_instance.task_id,
-            map_indexes=task_instance.map_index,
-            key="extra_msg"
-        )
-
+    extra_msg_from_task = None
+    #extra_msg_from_task = task_instance.xcom_pull(
+    #        task_ids=task_instance.task_id,
+    #        map_indexes=task_instance.map_index,
+    #        key="extra_msg"
+    #    )
+        
     if callable(extra_msg):
         # in case of function
         extra_msg_str = extra_msg(context)
@@ -120,20 +121,20 @@ def task_fail_slack_alert(
     else:
         # in case of a string (or the default empty string)
         extra_msg_str = extra_msg
-
+        
     #recursively join list/tuple extra_msg_str into string
     if isinstance(extra_msg_str, (list, tuple)):
         extra_msg_str = '\n> '.join(
             ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
         )
-
+        
     # Slack failure message
     if use_proxy:
         # Temporarily accessing Airflow on Morbius through 8080 instead of Nginx
         # Its hould be eventually removed
-        log_url = task_instance.log_url.replace(
-            "localhost", task_instance.hostname + ":8080"
-        )
+        #log_url = task_instance.log_url.replace(
+        #    "localhost", task_instance.hostname + ":8080"
+        #)
         # get the proxy credentials from the Airflow connection ``slack``. It
         # contains username and password to set the proxy <username>:<password>
         proxy=(
@@ -141,20 +142,20 @@ def task_fail_slack_alert(
             f"@{json.loads(BaseHook.get_connection('slack').extra)['url']}"
         )
     else:
-        log_url = task_instance.log_url.replace(
-            "localhost", task_instance.hostname
-        )
+        #log_url = task_instance.log_url.replace(
+        #    "localhost", task_instance.hostname
+        #)
         proxy = None
     slack_msg = (
         f"{emoji} {task_instance.dag_id}."
-        f"{task_instance.task_id} "
+        #f"{task_instance.task_id} "
         f"({context.get('ts_nodash_with_tz')}) FAILED.\n"
         f"{list_names}, please, check the <{log_url}|logs>\n"
     )
     
     if extra_msg_str != "":
         slack_msg = slack_msg + extra_msg_str
-
+        
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
         text=slack_msg,
@@ -215,7 +216,7 @@ def send_slack_msg(
         )
     else:
         proxy = None
-
+        
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
         text=msg,
