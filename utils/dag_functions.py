@@ -54,14 +54,14 @@ def task_fail_slack_alert(
     troubleshooting_tips: Optional[str] = None
 ) -> Any:
     """Sends Slack task-failure notifications.
-
+    
     Failure callback function to send notifications to Slack upon the failure
     of an Airflow task.
-
+    
     Example:
         This function can be passed as a failure callback to DAG's default_args
         like this::
-
+        
             import sys
             import os
             import pendulum
@@ -84,7 +84,7 @@ def task_fail_slack_alert(
                         task_fail_slack_alert, extra_msg="My custom message"
                     )
                 )
-
+                
     Args:
         context: The calling Airflow task's context
         extra_msg: An extra string message or a function that
@@ -122,7 +122,7 @@ def task_fail_slack_alert(
     else:
         # in case of a string (or the default empty string)
         extra_msg_str = extra_msg
-
+        
     #recursively join list/tuple extra_msg_str into string
     if isinstance(extra_msg_str, (list, tuple)):
         extra_msg_str = '\n> '.join(
@@ -243,7 +243,7 @@ def send_slack_msg(
         )
     else:
         proxy = None
-
+        
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
         text=msg,
