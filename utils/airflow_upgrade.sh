@@ -46,16 +46,6 @@ backup_airflow() {
     # backup the database
     echo "Enter the password of the PostgreSQL user: $PG_ADMIN"
     pg_dump -h $PG_HOST_ADDRESS -U $PG_ADMIN --create $OLD_PG_DATABASE > "${BACKUP_PATH}/files/database_`date +'%Y_%m_%d_%H_%M'`"
-    # stop Airflow
-    if (check_os | grep -q 'rhel'); then
-        pbrun /bin/systemctl stop airflow-scheduler
-        pbrun /bin/systemctl stop airflow-api-server
-        pbrun /bin/systemctl stop airflow-dag-processor
-    elif (check_os | grep -q 'ubuntu'); then
-        sudo /bin/systemctl stop airflow-scheduler
-        sudo /bin/systemctl stop airflow-api-server
-        sudo /bin/systemctl stop airflow-dag-processor
-    fi
 }
 
 #check if $1 GB of free space is available in the home folder before backup
@@ -122,6 +112,32 @@ setup_airflow_env() {
     fi
 }
 
+manage_airflow_services() {
+    local action=$1
+    shift  # Remove first argument, rest are service names
+    local services=("$@")
+    local sudo_cmd
+    
+    # Default services if none provided
+    if [ ${#services[@]} -eq 0 ]; then
+        services=("airflow-scheduler" "airflow-api-server" "airflow-dag-processor")
+    fi
+    
+    # Determine sudo command
+    if (check_os | grep -q 'rhel'); then
+        sudo_cmd="pbrun"
+    elif (check_os | grep -q 'ubuntu'); then
+        sudo_cmd="sudo"
+    fi
+    
+    echo "${action^}ing Airflow services: ${services[*]}"
+    
+    for service in "${services[@]}"; do
+        echo "  $sudo_cmd /bin/systemctl $action $service"
+        $sudo_cmd /bin/systemctl $action $service
+    done
+}
+
 # read the installation parameters
 #=================================
 # 1. from config file
@@ -138,6 +154,9 @@ if [ ${USE_PROXY,,} == 'true' ]; then
     read -sp "Password:" proxy_pass
     echo
 fi
+
+#stop airflow services before backing up database
+manage_airflow_services stop
 
 # 1. Backup old Airflow installation if needed
 #==========================================
@@ -189,12 +208,4 @@ if [ ${update_services,,} == 'y' ]; then
 fi
 
 # 7. restart Airflow services
-if (check_os | grep -q 'rhel'); then
-    pbrun /bin/systemctl start airflow-scheduler
-    pbrun /bin/systemctl start airflow-api-server
-    pbrun /bin/systemctl start airflow-dag-processor
-elif (check_os | grep -q 'ubuntu'); then
-    sudo /bin/systemctl start airflow-scheduler
-    sudo /bin/systemctl start airflow-api-server
-    sudo /bin/systemctl start airflow-dag-processor
-fi
+manage_airflow_services restart
