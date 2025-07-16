@@ -144,7 +144,7 @@ fi
 read -p "(1/7) Do you want to backup Airflow files? [Y/n]" backup_flag
 if [ ${backup_flag,,} == 'y' ]; then
     check_free_space 2
-    backup_airflow 
+    backup_airflow $1
 fi
 
 # set up the new Airflow
