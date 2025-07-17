@@ -130,6 +130,7 @@ def task_fail_slack_alert(
         )
         
     # Slack failure message
+    log_url = task_instance.log_url.replace("airflowdags", "airflow/dags")
     if use_proxy:
         # Temporarily accessing Airflow on Morbius through 8080 instead of Nginx
         # Its hould be eventually removed
