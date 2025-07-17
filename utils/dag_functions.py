@@ -106,11 +106,11 @@ def task_fail_slack_alert(
     list_names = " ".join([slack_ids.get(name, name) for name in owners])
     # get the extra message from the calling task, if provided
     extra_msg_from_task = None
-    #extra_msg_from_task = task_instance.xcom_pull(
-    #        task_ids=task_instance.task_id,
-    #        map_indexes=task_instance.map_index,
-    #        key="extra_msg"
-    #    )
+    extra_msg_from_task = task_instance.xcom_pull(
+            task_ids=task_instance.task_id,
+            map_indexes=task_instance.map_index,
+            key="extra_msg"
+    )
         
     if callable(extra_msg):
         # in case of function
@@ -129,12 +129,8 @@ def task_fail_slack_alert(
         )
         
     # Slack failure message
+    log_url = task_instance.log_url.replace("airflowdags", "airflow/dags")
     if use_proxy:
-        # Temporarily accessing Airflow on Morbius through 8080 instead of Nginx
-        # Its hould be eventually removed
-        #log_url = task_instance.log_url.replace(
-        #    "localhost", task_instance.hostname + ":8080"
-        #)
         # get the proxy credentials from the Airflow connection ``slack``. It
         # contains username and password to set the proxy <username>:<password>
         proxy=(
@@ -142,13 +138,10 @@ def task_fail_slack_alert(
             f"@{json.loads(BaseHook.get_connection('slack').extra)['url']}"
         )
     else:
-        #log_url = task_instance.log_url.replace(
-        #    "localhost", task_instance.hostname
-        #)
         proxy = None
     slack_msg = (
         f"{emoji} {task_instance.dag_id}."
-        #f"{task_instance.task_id} "
+        f"{task_instance.task_id} "
         f"({context.get('ts_nodash_with_tz')}) FAILED.\n"
         f"{list_names}, please, check the <{log_url}|logs>\n"
     )
