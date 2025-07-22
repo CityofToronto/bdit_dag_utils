@@ -212,6 +212,25 @@ def get_readme_docmd(readme_path, dag_name):
         doc_md = "doc_md not found in {readme_path}. Looking between {doc_md_key} tags."
     return doc_md
 
+def get_proxy(use_proxy: Optional[bool] = False):
+    """Get proxy for use on-prem.
+
+    Args:
+        use_proxy: A boolean to indicate whether to use a proxy or not. Proxy
+            usage is required to make the Slack webhook call on on-premises
+            servers (default False).
+    """
+    if use_proxy:
+        # get the proxy credentials from the Airflow connection ``slack``. It
+        # contains username and password to set the proxy <username>:<password>
+        proxy=(
+            f"http://{BaseHook.get_connection('slack').password}"
+            f"@{json.loads(BaseHook.get_connection('slack').extra)['url']}"
+        )
+    else:
+        proxy = None
+    return proxy
+
 def send_slack_msg(
     context: dict,
     msg: str,
@@ -233,22 +252,13 @@ def send_slack_msg(
         channel: ID of the Airflow connection with the details of the
             Slack channel to send messages to.
     """
-    if use_proxy:
-        # get the proxy credentials from the Airflow connection ``slack``. It
-        # contains username and password to set the proxy <username>:<password>
-        proxy=(
-            f"http://{BaseHook.get_connection('slack').password}"
-            f"@{json.loads(BaseHook.get_connection('slack').extra)['url']}"
-        )
-    else:
-        proxy = None
 
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
         text=msg,
         attachments=attachments,
         blocks=blocks,
-        proxy=proxy,
+        proxy=get_proxy(use_proxy),
     )
     notifier.notify(context=context)
 
