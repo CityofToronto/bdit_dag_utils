@@ -128,8 +128,7 @@ def task_fail_slack_alert(
         extra_msg_str = '\n> '.join(
             ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
         )
-        
-    # Slack failure message
+    #get log_url and fix typo
     log_url = task_instance.log_url.replace("airflowdags", "airflow/dags")
     if use_proxy:
         # Temporarily accessing Airflow on Morbius through 8080 instead of Nginx
@@ -189,7 +188,6 @@ def task_fail_slack_alert(
         proxy=proxy,
         attachments=attachments,
     )
-    notifier.notify(context=context)
 
 slack_alert_data_quality = partial(
     task_fail_slack_alert,
@@ -244,7 +242,7 @@ def send_slack_msg(
         )
     else:
         proxy = None
-        
+
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
         text=msg,
