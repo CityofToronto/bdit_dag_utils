@@ -127,7 +127,7 @@ def task_fail_slack_alert(
             ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
         )
     #get log_url and fix typo
-    log_url = task_instance.log_url.replace("airflowdags", "airflow/dags")
+    log_url = ti.log_url.replace("airflowdags", "airflow/dags")
 
     # Slack failure message
     slack_msg = (
