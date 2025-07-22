@@ -100,18 +100,17 @@ def task_fail_slack_alert(
     Returns:
         Any: The result of executing the SlackWebhookNotifier.
     """
-    task_instance = context["task_instance"]
+    ti = context["task_instance"]
     slack_ids = Variable.get("slack_member_id", deserialize_json=True)
     owners = context.get('dag').owner.split(',')
     list_names = " ".join([slack_ids.get(name, name) for name in owners])
     # get the extra message from the calling task, if provided
-    extra_msg_from_task = None
-    extra_msg_from_task = task_instance.xcom_pull(
-            task_ids=task_instance.task_id,
-            map_indexes=task_instance.map_index,
+    extra_msg_from_task = ti.xcom_pull(
+            task_ids=ti.task_id,
+            map_indexes=ti.map_index,
             key="extra_msg"
-    )
-        
+        )
+
     if callable(extra_msg):
         # in case of function
         extra_msg_str = extra_msg(context)
@@ -127,34 +126,26 @@ def task_fail_slack_alert(
         extra_msg_str = '\n> '.join(
             ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
         )
-        
-    # Slack failure message
+    #get log_url and fix typo
     log_url = task_instance.log_url.replace("airflowdags", "airflow/dags")
-    if use_proxy:
-        # get the proxy credentials from the Airflow connection ``slack``. It
-        # contains username and password to set the proxy <username>:<password>
-        proxy=(
-            f"http://{BaseHook.get_connection('slack').password}"
-            f"@{json.loads(BaseHook.get_connection('slack').extra)['url']}"
-        )
-    else:
-        proxy = None
+
+    # Slack failure message
     slack_msg = (
-        f"{emoji} {task_instance.dag_id}."
-        f"{task_instance.task_id} "
+        f"{emoji} {ti.dag_id}."
+        f"{ti.task_id} "
         f"({context.get('ts_nodash_with_tz')}) FAILED.\n"
         f"{list_names}, please, check the <{log_url}|logs>\n"
     )
     
     if extra_msg_str != "":
         slack_msg = slack_msg + extra_msg_str
-        
-    notifier = SlackWebhookNotifier(
-        slack_webhook_conn_id=slack_channel(channel),
-        text=slack_msg,
-        proxy=proxy,
+
+    send_slack_msg(
+        context=context,
+        msg=slack_msg,
+        use_proxy=use_proxy,
+        channel=channel
     )
-    notifier.notify(context=context)
 
 slack_alert_data_quality = partial(
     task_fail_slack_alert,
@@ -209,7 +200,7 @@ def send_slack_msg(
         )
     else:
         proxy = None
-        
+
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
         text=msg,
