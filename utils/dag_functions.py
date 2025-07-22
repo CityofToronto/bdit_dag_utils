@@ -126,15 +126,13 @@ def task_fail_slack_alert(
         extra_msg_str = '\n> '.join(
             ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
         )
-    #get log_url and fix typo
-    log_url = ti.log_url.replace("airflowdags", "airflow/dags")
-
+        
     # Slack failure message
     slack_msg = (
         f"{emoji} {ti.dag_id}."
         f"{ti.task_id} "
         f"({context.get('ts_nodash_with_tz')}) FAILED.\n"
-        f"{list_names}, please, check the <{log_url}|logs>\n"
+        f"{list_names}, please, check the <{ti.log_url}|logs>\n"
     )
     
     if extra_msg_str != "":
