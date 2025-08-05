@@ -40,21 +40,32 @@ def get_variable(var_name:str) -> list:
     return Variable.get(var_name, deserialize_json=True)
 
 @task(map_index_template="{{ dest_table_name }}")
-def copy_table(conn_id:str, table:Tuple[str, str], **context) -> None:
+def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
     """Copies ``table[0]`` table into ``table[1]`` after truncating it.
 
     Args:
         conn_id: The name of Airflow connection to the database
-        table: A tuple containing the source table to be copied in the format
-            ``schema.table``, and the destination table in the same format
-            ``schema.table``.
+        table: A tuple containing 2-3 entries, each in the format ``schema.table``:
+            - the source TABLE/VIEW/MATERIALIZED VIEW (table[0]) to be copied from
+            - the destination TABLE/updatable VIEW (table[1]) to inserted into
+            - An optional third TABLE entry (table[2]) which is either a TABLE or a VIEW 
+            (in case table[1] destination is an updatable VIEW) to refresh the comment on
     """
+    #check correct input length
+    try:
+        assert len(table) >= 2
+        assert len(table) <= 3
+    except AssertionError:
+        raise AirflowFailException(
+            f"Input `table` tuple should have length between 2 and 3, got {len(table)}."
+        )
+    
     #name mapped task
     from airflow.operators.python import get_current_context
     context = get_current_context()
     context["dest_table_name"] = table[1]
     
-    # separate tables and schemas
+    # separate tables and schemas for each of the 2-3 inputs
     try:
         src_schema, src_table = table[0].split(".")
     except ValueError:
@@ -67,43 +78,54 @@ def copy_table(conn_id:str, table:Tuple[str, str], **context) -> None:
         raise AirflowFailException(
             f"Invalid destination table (expected schema.table, got {table[1]})"
         )
-
-    LOGGER.info(f"Copying {table[0]} to {table[1]}.")
-
-    con = PostgresHook(conn_id).get_conn()
-    # truncate the destination table
+    LOGGER.info(f"Inserting from {table[0]} to {table[1]}.")
+    cmnt_idx = len(table) - 1
+    try:
+        comment_schema, comment_table = table[cmnt_idx].split(".")
+    except ValueError:
+        raise AirflowFailException(
+            f"Invalid comment destination table (expected schema.table, got {table[cmnt_idx]})"
+        )
+    LOGGER.info(f"Commenting on {table[cmnt_idx]}.")
+    
+    # delete all rows from the destination table
+    # delete used instead of truncate to support updatable views
     truncate_query = sql.SQL(
-        "TRUNCATE {}.{}"
+        "DELETE FROM {}.{}"
         ).format(
             sql.Identifier(dst_schema), sql.Identifier(dst_table)
         )
     # get the column names of the source table
     source_columns_query = sql.SQL(
-        "SELECT column_name FROM information_schema.columns "
-        "WHERE table_schema = %s AND table_name = %s;"
-        )
-    # copy the table's comment, extended with additional info (source, time)
-    comment_query = sql.SQL(
-        r"""
-            DO $$
-            DECLARE comment_ text;
-            BEGIN
-                SELECT obj_description('{}.{}'::regclass)
-                    || 'Copied from {}.{} by bigdata repliactor DAG at '
-                    || to_char(now() AT TIME ZONE 'EST5EDT', 'yyyy-mm-dd HH24:MI') || '.' INTO comment_;
-                EXECUTE format('COMMENT ON TABLE {}.{} IS %L', comment_);
-            END $$;
-        """
-        ).format(
-            sql.Identifier(src_schema), sql.Identifier(src_table),
-            sql.Identifier(src_schema), sql.Identifier(src_table),
-            sql.Identifier(dst_schema), sql.Identifier(dst_table),
-        )
-    
+        """SELECT column_name FROM information_schema.columns
+        WHERE table_schema = %s AND table_name = %s;"""
+    )
+        
+    existing_comment_query = sql.SQL(
+        """SELECT
+            --extract the existing comment before "Copied from" if exists
+            COALESCE(substring(obj_desc FROM E'^(.*?)\\n+Copied from'), obj_desc)
+            || E'\\nCopied from {src_sch}.{src_tbl} by bigdata repliactor DAG at '
+            || to_char(now() AT TIME ZONE 'EST5EDT', 'yyyy-mm-dd HH24:MI') || '.'
+            --get the existing comment
+            FROM obj_description('{dst_sch}.{dst_tbl}'::regclass) AS obj_desc;"""
+    ).format(
+        src_sch = sql.Identifier(src_schema),
+        src_tbl = sql.Identifier(src_table),
+        dst_sch = sql.Identifier(comment_schema),
+        dst_tbl = sql.Identifier(comment_table)
+    )
+
+    obj_type_query = sql.SQL(
+        """SELECT CASE pg_class.relkind WHEN 'r' THEN 'TABLE' WHEN 'v' THEN 'VIEW' END
+        FROM pg_catalog.pg_namespace
+        JOIN pg_catalog.pg_class ON pg_class.relnamespace = pg_namespace.oid
+        WHERE pg_namespace.nspname = %s AND pg_class.relname = %s;"""
+    )
+
+    con = PostgresHook(conn_id).get_conn()
     try:
         with con, con.cursor() as cur:
-            # truncate the destination table
-            cur.execute(truncate_query)
             # get the column names of the source table
             cur.execute(source_columns_query, [dst_schema, dst_table])
             dst_columns = [r[0] for r in cur.fetchall()]
@@ -116,9 +138,22 @@ def copy_table(conn_id:str, table:Tuple[str, str], **context) -> None:
                     sql.SQL(', ').join(map(sql.Identifier, dst_columns)),
                     sql.Identifier(src_schema), sql.Identifier(src_table)
                 )
+            # identify table comment
+            cur.execute(existing_comment_query)
+            comment = cur.fetchone()[0]
+            LOGGER.info(f"Commenting on {comment_schema}.{comment_table}: %s", comment)
+            # identify object type and prepare comment query
+            cur.execute(obj_type_query, [comment_schema, comment_table])
+            object_type = cur.fetchone()[0]
+            comment_query = sql.SQL('COMMENT ON {obj_type} {dst_sch}.{dst_tbl} IS %s').format(
+                obj_type = sql.SQL(object_type),
+                dst_sch = sql.Identifier(comment_schema),
+                dst_tbl = sql.Identifier(comment_table)
+            )
+            # truncate, insert, and comment
+            cur.execute(truncate_query)
             cur.execute(insert_query)
-            # copy the table's comment
-            cur.execute(comment_query)
+            cur.execute(comment_query, (comment,))
     #catch psycopg2 errors:
     except Error as e:
         # push an extra failure message to be sent to Slack in case of failing
@@ -128,7 +163,7 @@ def copy_table(conn_id:str, table:Tuple[str, str], **context) -> None:
         )
         raise AirflowFailException(e)
 
-    LOGGER.info(f"Successfully copied {table[0]} to {table[1]}.")
+    LOGGER.info(f"Successfully copied {table[0]} to {table[1]} and commented on {table[cmnt_idx]}.")
 
 def check_jan_1st(context): #check if Jan 1 to trigger partition creates. 
     from datetime import datetime
