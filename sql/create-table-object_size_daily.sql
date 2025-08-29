@@ -13,14 +13,20 @@ CREATE TABLE IF NOT EXISTS public.object_size_daily
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS public.object_size_daily
-OWNER TO dbadmin;
-
-REVOKE ALL ON TABLE public.object_size_daily FROM bdit_humans;
-REVOKE ALL ON TABLE public.object_size_daily FROM ref_bot;
-
-GRANT SELECT ON TABLE public.object_size_daily TO bdit_humans;
-
+--bigdata
+ALTER TABLE IF EXISTS public.object_size_daily OWNER TO dbadmin;
 GRANT ALL ON TABLE public.object_size_daily TO dbadmin;
 
+REVOKE ALL ON TABLE public.object_size_daily FROM bdit_humans;
+GRANT SELECT ON TABLE public.object_size_daily TO bdit_humans;
+
+--ptc
+ALTER TABLE IF EXISTS public.object_size_daily OWNER TO postgres;
+GRANT ALL ON TABLE public.object_size_daily TO postgres;
+
+REVOKE ALL ON TABLE public.object_size_daily FROM ptc_humans;
+GRANT SELECT ON TABLE public.object_size_daily TO ptc_humans;
+
+--both
+REVOKE ALL ON TABLE public.object_size_daily FROM ref_bot;
 GRANT INSERT, SELECT, UPDATE ON TABLE public.object_size_daily TO ref_bot;

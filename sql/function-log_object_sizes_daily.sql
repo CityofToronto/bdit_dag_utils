@@ -42,11 +42,15 @@ WHERE array_length(dts, 1) > 10;
 
 $BODY$;
 
-ALTER FUNCTION public.log_object_sizes_daily()
-OWNER TO dbadmin;
+--ptc
+ALTER FUNCTION public.log_object_sizes_daily() OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION public.log_object_sizes_daily() TO postgres;
+REVOKE ALL ON FUNCTION public.log_object_sizes_daily() FROM ptc_humans;
 
-GRANT EXECUTE ON FUNCTION public.log_object_sizes_daily() TO public;
-
+--bigdata
+ALTER FUNCTION public.log_object_sizes_daily() OWNER TO dbadmin;
 GRANT EXECUTE ON FUNCTION public.log_object_sizes_daily() TO dbadmin;
+REVOKE ALL ON FUNCTION public.log_object_sizes_daily() FROM bdit_humans;
 
+--both
 GRANT EXECUTE ON FUNCTION public.log_object_sizes_daily() TO ref_bot;
