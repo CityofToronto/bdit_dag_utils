@@ -14,7 +14,7 @@ ROWS 1
 AS $BODY$
     --noqa: disable=TMP
     WITH ytd AS (
-        SELECT SUM(schema_size) 
+        SELECT SUM(schema_size)
         FROM public.schema_size_daily
         WHERE dt = CURRENT_DATE - 1
     )
