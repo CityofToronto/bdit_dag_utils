@@ -20,10 +20,15 @@ logging.basicConfig(level=logging.INFO)
 
 def is_prod_mode() -> bool:
     """Returns True if the code is running from the PROD ENV directory."""
-    PROD_ENV_PATH = Variable.get("prod_env_path")
+    prod_env_paths = Variable.get("prod_env_paths")
     dags_folder = os.path.dirname(os.path.realpath(__file__))
-    repo_folder = os.path.basename(os.path.dirname(dags_folder))
-    return repo_folder == PROD_ENV_PATH
+    
+    for prod_path in prod_env_paths:
+        common_path = os.path.commonpath([dags_folder, prod_path])
+        #if the common path is under prod path
+        if os.path.normpath(common_path) == os.path.normpath(prod_path):
+            return True
+    return False
 
 def slack_channel(channel: Optional[str] = None) -> str:
     "Returns a slack channel ID"
