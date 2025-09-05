@@ -3,6 +3,7 @@ import os
 import socket
 import logging
 import pendulum
+from functools import partial
 from datetime import timedelta
 
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
@@ -51,17 +52,6 @@ else: #EC2
         }
     }
 
-default_args = {
-    'owner': ','.join(DAG_OWNERS),
-    'depends_on_past':False,
-    'start_date': pendulum.datetime(2025, 4, 10, tz="America/Toronto"),
-    'email_on_failure': False,
-    'email_on_success': False,
-    'retries': 0,
-    'retry_delay': timedelta(minutes=5),
-    'on_failure_callback': slack_alert_data_quality
-}
-
 def create_monitoring_dag(dag_id, dag_conn_id, dag_var_id):
     @dag(
         dag_id,
@@ -103,6 +93,22 @@ def create_monitoring_dag(dag_id, dag_conn_id, dag_var_id):
     
 for server in deployments:
     dag_id = f"{DAG_NAME}_{server}"
+    if server == 'ec2':
+        fail_fn = slack_alert_data_quality
+    else:
+        fail_fn = partial(slack_alert_data_quality, use_proxy=True)
+    
+    default_args = {
+        'owner': ','.join(DAG_OWNERS),
+        'depends_on_past':False,
+        'start_date': pendulum.datetime(2025, 4, 10, tz="America/Toronto"),
+        'email_on_failure': False,
+        'email_on_success': False,
+        'retries': 0,
+        'retry_delay': timedelta(minutes=5),
+        'on_failure_callback': fail_fn
+    }
+    
     globals()[dag_id] = create_monitoring_dag(
         dag_id, deployments[server]["conn_id"], deployments[server]["var"]
     )
