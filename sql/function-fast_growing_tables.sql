@@ -1,9 +1,10 @@
--- FUNCTION: public.fast_growing_tables(text)
+-- FUNCTION: public.fast_growing_tables(text, text)
 
--- DROP FUNCTION IF EXISTS public.fast_growing_tables(text);
+-- DROP FUNCTION IF EXISTS public.fast_growing_tables(text, text);
 
 CREATE OR REPLACE FUNCTION public.fast_growing_tables(
-    db_table_alert text
+    db_table_alert text,
+    server text
 )
 RETURNS TABLE(_check boolean, summ text, gaps text[]) 
 LANGUAGE SQL
@@ -27,7 +28,7 @@ AS $BODY$
 
     SELECT
         COUNT(*) < 1 AS _check,
-        'The following database object(s) changed in size by more than '
+        'The following :' || fast_growing_tables.server || ': database object(s) changed in size by more than '
         || fast_growing_tables.db_table_alert || ' today:' AS summ,
         array_agg(
             obj_name || ' '
@@ -40,14 +41,14 @@ AS $BODY$
 $BODY$;
 
 --ptc
-ALTER FUNCTION public.fast_growing_tables(text) OWNER TO postgres;
-GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text) TO postgres;
-GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text) TO ptc_humans;
+ALTER FUNCTION public.fast_growing_tables(text, text) OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text, text) TO postgres;
+GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text, text) TO ptc_humans;
 
 --bigdata
-ALTER FUNCTION public.fast_growing_tables(text) OWNER TO dbadmin;
-GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text) TO dbadmin;
-GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text) TO bdit_humans;
+ALTER FUNCTION public.fast_growing_tables(text, text) OWNER TO dbadmin;
+GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text, text) TO dbadmin;
+GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text, text) TO bdit_humans;
 
 --both
-GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text) TO ref_bot;
+GRANT EXECUTE ON FUNCTION public.fast_growing_tables(text, text) TO ref_bot;
