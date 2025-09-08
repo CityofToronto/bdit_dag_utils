@@ -1,9 +1,10 @@
--- FUNCTION: public.check_db_growth(text)
+-- FUNCTION: public.check_db_growth(text, text)
 
--- DROP FUNCTION IF EXISTS public.check_db_growth(text);
+-- DROP FUNCTION IF EXISTS public.check_db_growth(text, text);
 
 CREATE OR REPLACE FUNCTION public.check_db_growth(
-    db_max_size text
+    db_max_size text,
+    server text
 )
 RETURNS TABLE(_check boolean, summ text) 
 LANGUAGE SQL
@@ -26,7 +27,7 @@ AS $BODY$
                 > pg_size_bytes(check_db_growth.db_max_size) THEN false
             ELSE True
         END AS _check,
-        'The database is growing at ' || pg_size_pretty(SUM(schema_size) - ytd.sum)
+        'The :' || check_db_growth.server || ': database is growing at ' || pg_size_pretty(SUM(schema_size) - ytd.sum)
         || ' per day and will exceed ' || check_db_growth.db_max_size || ' in '
         || floor(
             (pg_size_bytes(check_db_growth.db_max_size) - SUM(schema_size)) --distance to max
@@ -38,14 +39,14 @@ AS $BODY$
 $BODY$;
 
 --ptc
-ALTER FUNCTION public.check_db_growth(text) OWNER TO postgres;
-GRANT EXECUTE ON FUNCTION public.check_db_growth(text) TO postgres;
-GRANT EXECUTE ON FUNCTION public.check_db_growth(text) TO ptc_humans;
+ALTER FUNCTION public.check_db_growth(text, text) OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO postgres;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO ptc_humans;
 
 --bigdata
-ALTER FUNCTION public.check_db_growth(text) OWNER TO dbadmin;
-GRANT EXECUTE ON FUNCTION public.check_db_growth(text) TO dbadmin;
-GRANT EXECUTE ON FUNCTION public.check_db_growth(text) TO bdit_humans;
+ALTER FUNCTION public.check_db_growth(text, text) OWNER TO dbadmin;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO dbadmin;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO bdit_humans;
 
 --both
-GRANT EXECUTE ON FUNCTION public.check_db_growth(text) TO ref_bot;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO ref_bot;
