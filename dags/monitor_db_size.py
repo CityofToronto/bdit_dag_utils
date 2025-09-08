@@ -52,7 +52,7 @@ else: #EC2
         }
     }
 
-def create_monitoring_dag(dag_id, dag_conn_id, dag_var_id):
+def create_monitoring_dag(dag_id, dag_conn_id, dag_var_id, server):
     @dag(
         dag_id,
         default_args=default_args,
