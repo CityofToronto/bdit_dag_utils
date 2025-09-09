@@ -76,13 +76,13 @@ def create_monitoring_dag(dag_id, dag_conn_id, dag_var_id, server):
         
         check_fast_growing_tables = SQLCheckOperatorWithReturnValue(
             task_id="check_fast_growing_tables",
-            sql=f"SELECT _check, summ, gaps FROM public.fast_growing_tables('{{{{ var.json.{dag_var_id}.db_table_alert }}}}'::text, {server});",
+            sql=f"SELECT _check, summ, gaps FROM public.fast_growing_tables('{{{{ var.json.{dag_var_id}.db_table_alert }}}}'::text, '{server}');",
             conn_id=dag_conn_id
         )
 
         check_fast_growing_db = SQLCheckOperatorWithReturnValue(
             task_id="check_fast_growing_db",
-            sql=f"SELECT _check, summ FROM public.check_db_growth('{{{{ var.json.{dag_var_id}.db_max_size }}}}'::text, {server});",
+            sql=f"SELECT _check, summ FROM public.check_db_growth('{{{{ var.json.{dag_var_id}.db_max_size }}}}'::text, '{server}');",
             conn_id=dag_conn_id
         )
 
