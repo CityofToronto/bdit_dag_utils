@@ -20,31 +20,24 @@ sys.path.insert(0, os.path.join(REPO_PATH))
 
 # pylint: disable=wrong-import-position
 # pylint: disable=import-error
-from utils.dag_functions import (
-    task_fail_alert,
-    default_slack_channel
-)
-from dags.dag_owners import DAG_OWNERS
+from utils.dag_functions import task_fail_slack_alert
+from dags.dag_owners import owners
 # pylint: enable=wrong-import-position
 # pylint: enable=import-error
 
 DAG_ID = "sirius_bancroft_check"
-owners = DAG_OWNERS.get(DAG_ID, ["Unknown"])
-SLACK_CONN_ID = default_slack_channel()
+OWNERS = owners.get(DAG_ID, ["Unknown"])
 DEPLOYMENT = os.environ.get("DEPLOYMENT", "PROD")
 
 # Default Airflow task arguments
 default_args = {
-    "owner": ",".join(owners),
+    "owner": ",".join(OWNERS),
     "depends_on_past": False,
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": partial(
-        task_fail_alert,
-        slack_conn_id=SLACK_CONN_ID,
-    )
+    "on_failure_callback": partial(task_fail_slack_alert, use_proxy=True)
 }
 
 select_sql = sql.SQL("""
