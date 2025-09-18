@@ -7,12 +7,12 @@ from functools import partial
 from datetime import timedelta
 
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
-from airflow.models import Variable
-from airflow.decorators import dag
+from airflow.sdk import dag
 
 try:
     repo_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     sys.path.insert(0, repo_path)
+    from dags.dag_owners import owners
     from utils.dag_functions import slack_alert_data_quality
     from utils.custom_operators import SQLCheckOperatorWithReturnValue
 except:
@@ -23,36 +23,36 @@ logging.basicConfig(level=logging.DEBUG)
 
 doc_md = ""
 DAG_NAME = 'monitor_db_size'
-DAG_OWNERS = Variable.get('dag_owners', deserialize_json=True).get(DAG_NAME, ["Unknown"]) 
+DAG_OWNERS = owners.get(DAG_NAME, ["Unknown"])
 
 HOST = socket.gethostname()
 if HOST == 'bancroft':
     deployments = {
         'bancroft': {
             "conn_id": "ref_bot",
-            "var": "db_monitoring"
+            "airflow_var": "db_monitoring"
         }
     }
 elif HOST == 'morbius':
     deployments = {
         'morbius': {
             "conn_id": "ref_bot_morbius",
-            "var": "db_monitoring_morbius"
+            "airflow_var": "db_monitoring_morbius"
         },
         'sirius': {
             "conn_id": "ref_bot_sirius",
-            "var": "db_monitoring_sirius"
+            "airflow_var": "db_monitoring_sirius"
         }
     }
 else: #EC2
     deployments = {
         'ec2': {
             "conn_id": "ref_bot",
-            "var": "db_monitoring"
+            "airflow_var": "db_monitoring"
         }
     }
 
-def create_monitoring_dag(dag_id, dag_conn_id, dag_var_id, server):
+def create_monitoring_dag(dag_id, dag_conn_id, dag_var_id, server, default_args):
     @dag(
         dag_id,
         default_args=default_args,
@@ -109,6 +109,10 @@ for server in deployments:
         'on_failure_callback': fail_fn
     }
     
+    conn_id = deployments[server]["conn_id"]
+    airflow_var = deployments[server]["airflow_var"]
+    
+    #register DAG
     globals()[dag_id] = create_monitoring_dag(
-        dag_id, deployments[server]["conn_id"], deployments[server]["var"], server
+        dag_id, conn_id, airflow_var, server, default_args
     )
