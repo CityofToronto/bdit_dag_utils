@@ -9,16 +9,15 @@ import os
 import sys
 import pendulum
 from functools import partial
-from airflow import DAG
 
 AIRFLOW_DAGS = os.path.dirname(os.path.realpath(__file__))
 AIRFLOW_ROOT = os.path.dirname(AIRFLOW_DAGS)
 AIRFLOW_TASKS = os.path.join(AIRFLOW_ROOT, 'tasks')
 AIRFLOW_TASKS_LIB = os.path.join(AIRFLOW_TASKS, 'lib')
 
+from airflow.sdk import DAG, Variable
 from airflow.configuration import conf
-from airflow.operators.bash import BashOperator
-from airflow.models import Variable 
+from airflow.providers.standard.operators.bash import BashOperator
 
 dag_name = 'log_cleanup'
 
@@ -63,7 +62,7 @@ def create_dag(filepath, doc, start_date, schedule_interval):
       # Prevent the same DAG from running concurrently more than once.
       max_active_runs=1,
       schedule=schedule_interval,
-      tags=['bdit_data-sources', 'maintenance'],
+      tags=['bdit_dag_utils', 'maintenance'],
       # This allows us to simplify `create_bash_task` below.
       template_searchpath=AIRFLOW_TASKS
     )
