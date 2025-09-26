@@ -11,7 +11,7 @@ from airflow.decorators import dag
 try:
     repo_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     sys.path.insert(0, repo_path)
-    from utils.dag_functions import slack_alert_data_quality
+    from utils.dag_functions import task_fail_slack_alert
     from utils.custom_operators import SQLCheckOperatorWithReturnValue
 except:
     raise ImportError("Cannot import slack alert functions")
@@ -31,7 +31,7 @@ default_args = {
     'email_on_success': False,
     'retries': 0,
     'retry_delay': timedelta(minutes=5),
-    'on_failure_callback': slack_alert_data_quality
+    'on_failure_callback': task_fail_slack_alert
 }
 
 @dag(
