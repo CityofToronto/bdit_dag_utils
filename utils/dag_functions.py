@@ -10,7 +10,7 @@ from functools import partial
 from psycopg2 import sql, Error
 
 from airflow.sdk import Variable
-from airflow.hooks.base import BaseHook
+from airflow.sdk.bases.hook import BaseHook
 from airflow.providers.slack.notifications.slack_webhook import SlackWebhookNotifier
 from airflow.exceptions import AirflowFailException
 from airflow.providers.postgres.hooks.postgres import PostgresHook

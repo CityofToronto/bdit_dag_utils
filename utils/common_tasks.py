@@ -7,7 +7,7 @@ import datetime
 # pylint: disable=import-error
 from airflow.sdk import task, Variable
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.sensors.base import PokeReturnValue
+from airflow.sdk.bases.sensor import PokeReturnValue
 from airflow.exceptions import AirflowFailException, AirflowSkipException
 from airflow.providers.standard.sensors.time import TimeSensor
 
