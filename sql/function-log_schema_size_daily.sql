@@ -16,8 +16,8 @@ INSERT INTO public.schema_size_daily (
 SELECT
     CURRENT_DATE AS dt,
     pg_namespace.nspname AS schema_name,
-    SUM(pg_total_relation_size(pg_class.oid)) AS schema_size,
-    pg_size_pretty(SUM(pg_total_relation_size(pg_class.oid))) AS schema_size_pretty
+    SUM(pg_relation_size(pg_class.oid)) AS schema_size,
+    pg_size_pretty(SUM(pg_relation_size(pg_class.oid))) AS schema_size_pretty
 FROM pg_catalog.pg_class
 JOIN pg_catalog.pg_namespace ON relnamespace = pg_namespace.oid
 GROUP BY
