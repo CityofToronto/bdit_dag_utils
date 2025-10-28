@@ -15,7 +15,6 @@ try:
     repo_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     sys.path.insert(0, repo_path)
     from utils.dag_functions import task_fail_slack_alert
-    from utils.custom_operators import SQLCheckOperatorWithReturnValue
     from dags.dag_owners import owners
 except:
     raise ImportError("Cannot import slack alert functions")
@@ -44,23 +43,23 @@ default_args = {
     schedule='@daily',
     doc_md = doc_md,
     tags=["bdit_dag_utils", "monitoring"],
-    template_searchpath=os.path.join(repo_path, 'sql'),
+    max_active_runs=1,  # Only 1 DAG can run at a time
     catchup=False
 )
 
 def monitor_db_sessions():
     @task.sensor(poke_interval=600, timeout=24 * 3600, mode="poke")
-    def log_sessions() -> PokeReturnValue:
-        POSTGRES_CRED = PostgresHook(postgres_conn_id="ref_bot")
-        conn = POSTGRES_CRED.get_conn()
+    def log_sessions(conn_id="ref_bot") -> PokeReturnValue:
+        "Every 10 minutes throughout the day, run a function to log long running queries into a table."
+        POSTGRES_CRED = PostgresHook(conn_id)
         fpath = os.path.join(repo_path, 'sql', 'insert-long_running_query_log.sql')
         with open(fpath, 'r', encoding='utf-8') as file:
             query = file.read()
-            query = query.format(db = 'bigdata')
         
-        with conn.cursor() as cur:
-            cur.execute(query)
-        conn.close()
+        with POSTGRES_CRED.get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(query, {'db': 'bigdata'})
+            conn.commit()
         
         return PokeReturnValue(is_done=False)
     
