@@ -18,7 +18,7 @@ SELECT
     xact_start,
     backend_type,
     active_since
-FROM public.get_sessions('{db}'::text)
+FROM public.get_sessions(%s::text)
 WHERE
     active_since >= 30
     OR pid IN (
