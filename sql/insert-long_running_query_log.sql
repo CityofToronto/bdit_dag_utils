@@ -22,7 +22,7 @@ FROM public.get_sessions(%s::text)
 WHERE
     active_since >= 30
     OR pid IN (
-        SELECT UNNEST(blocking_pids)::integer FROM public.get_sessions('{db}'::text)
+        SELECT UNNEST(blocking_pids)::integer FROM public.get_sessions(%s::text)
     )
 ON CONFLICT ON CONSTRAINT session_log_pkey
 DO UPDATE SET (application_name, state, wait_event, blocking_pids, query, state_change, query_start, xact_start, backend_type, active_since)

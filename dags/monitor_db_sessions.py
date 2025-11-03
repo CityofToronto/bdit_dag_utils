@@ -59,7 +59,7 @@ def monitor_db_sessions():
         
         with POSTGRES_CRED.get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, ('bigdata', ))
+                cur.execute(query, ('bigdata', 'bigdata'))
             conn.commit()
         
         return PokeReturnValue(is_done=False)
