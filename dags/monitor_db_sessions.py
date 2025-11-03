@@ -8,6 +8,7 @@ from airflow.decorators import dag, task
 from airflow.sensors.base import PokeReturnValue
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
+#for Airflow 3
 #from airflow.sdk import dag, task
 #from airflow.sdk.bases.sensor import PokeReturnValue
 
@@ -48,7 +49,7 @@ default_args = {
 )
 
 def monitor_db_sessions():
-    @task.sensor(poke_interval=600, timeout=24 * 3600, mode="poke")
+    @task.sensor(poke_interval=600, timeout=24 * 3600, mode="poke", soft_fail=True)
     def log_sessions(conn_id="ref_bot") -> PokeReturnValue:
         "Every 10 minutes throughout the day, run a function to log long running queries into a table."
         POSTGRES_CRED = PostgresHook(conn_id)
@@ -58,7 +59,7 @@ def monitor_db_sessions():
         
         with POSTGRES_CRED.get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, {'db': 'bigdata'})
+                cur.execute(query, ('bigdata', ))
             conn.commit()
         
         return PokeReturnValue(is_done=False)
