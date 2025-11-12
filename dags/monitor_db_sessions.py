@@ -2,6 +2,7 @@ import sys
 import os
 import logging
 import pendulum
+from functools import partial
 from datetime import timedelta
 
 from airflow.decorators import dag, task
@@ -36,7 +37,7 @@ default_args = {
     'email_on_success': False,
     'retries': 0,
     'retry_delay': timedelta(minutes=5),
-    'on_failure_callback': task_fail_slack_alert
+    'on_failure_callback': partial(task_fail_slack_alert, channel = 'slack_data_pipeline_dev')
 }
 
 @dag(
@@ -67,10 +68,13 @@ def monitor_db_sessions():
     
     report_queries = SQLCheckOperatorWithReturnValue(
         task_id="report_queries",
-        sql="""SELECT COUNT(*) > 0, ARRAY_AGG('`' || usename || '`' || ' - `' || split_part(session_log.query, E'\n', 1) || '...`')
+        sql="""SELECT COUNT(*) = 0 AS _check,
+            'There were ' || count(*) || ' long/blocking queries logged to `public.session_log` in the last day:' AS summ,
+            ARRAY_AGG('`' || usename || '`' || ' - `' || split_part(session_log.query, E'\n', 1) || '...`') AS queries
         FROM public.session_log
         WHERE backend_start::timestamp >= '{{ data_interval_start }}'""",
-        conn_id="ref_bot"
+        conn_id="ref_bot",
+        trigger_rule="all_done"
     )
     
     log_sessions() >> report_queries
