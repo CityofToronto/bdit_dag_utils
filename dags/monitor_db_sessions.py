@@ -16,6 +16,7 @@ try:
     repo_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     sys.path.insert(0, repo_path)
     from utils.dag_functions import task_fail_slack_alert
+    from utils.custom_operators import SQLCheckOperatorWithReturnValue
     from dags.dag_owners import owners
 except:
     raise ImportError("Cannot import slack alert functions")
@@ -41,7 +42,7 @@ default_args = {
 @dag(
     DAG_NAME, 
     default_args=default_args,
-    schedule='@daily',
+    schedule='0 8 * * *',
     doc_md = doc_md,
     tags=["bdit_dag_utils", "monitoring"],
     max_active_runs=1,  # Only 1 DAG can run at a time
@@ -64,6 +65,14 @@ def monitor_db_sessions():
         
         return PokeReturnValue(is_done=False)
     
-    log_sessions()
+    report_queries = SQLCheckOperatorWithReturnValue(
+        task_id="report_queries",
+        sql="""SELECT COUNT(*) > 0, ARRAY_AGG('`' || usename || '`' || ' - `' || split_part(session_log.query, E'\n', 1) || '...`')
+        FROM public.session_log
+        WHERE backend_start::timestamp >= '{{ data_interval_start }}'""",
+        conn_id="ref_bot"
+    )
+    
+    log_sessions() >> report_queries
 
 monitor_db_sessions()
