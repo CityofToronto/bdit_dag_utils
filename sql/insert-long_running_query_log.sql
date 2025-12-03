@@ -2,22 +2,23 @@
 
 INSERT INTO public.session_log (
     pid, usename, application_name, backend_start, state, wait_event, blocking_pids,
-    query, state_change, query_start, xact_start, backend_type, active_since
+    query, state_change, query_start, xact_start, backend_type, active_since, ds
 )
 SELECT
     pid,
     usename,
     application_name,
-    backend_start,
+    backend_start::timestamptz AT TIME ZONE 'Canada/Eastern',
     state,
     wait_event,
     blocking_pids,
     query,
-    state_change,
-    query_start,
-    xact_start,
+    state_change::timestamptz AT TIME ZONE 'Canada/Eastern',
+    query_start::timestamptz AT TIME ZONE 'Canada/Eastern',
+    xact_start::timestamptz AT TIME ZONE 'Canada/Eastern',
     backend_type,
-    active_since
+    active_since,
+    %s AS ds
 FROM public.get_sessions(%s::text)
 WHERE
     backend_type <> 'parallel worker' AND (
@@ -27,8 +28,10 @@ WHERE
         )
     )
 ON CONFLICT ON CONSTRAINT session_log_pkey
-DO UPDATE SET (application_name, state, wait_event, blocking_pids, query, state_change, query_start, xact_start, backend_type, active_since)
-    = (
+DO UPDATE SET (
+    application_name, state, wait_event, blocking_pids, query, state_change,
+    query_start, xact_start, backend_type, active_since, ds
+) = (
         EXCLUDED.application_name,
         EXCLUDED.state,
         EXCLUDED.wait_event,
@@ -38,5 +41,6 @@ DO UPDATE SET (application_name, state, wait_event, blocking_pids, query, state_
         EXCLUDED.query_start,
         EXCLUDED.xact_start,
         EXCLUDED.backend_type,
-        EXCLUDED.active_since
+        EXCLUDED.active_since,
+        EXCLUDED.ds
     )
