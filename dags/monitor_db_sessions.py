@@ -52,7 +52,7 @@ default_args = {
 
 def monitor_db_sessions():
     @task.sensor(poke_interval=600, timeout=24 * 3600, mode="poke", soft_fail=True)
-    def log_sessions(conn_id="ref_bot") -> PokeReturnValue:
+    def log_sessions(conn_id="ref_bot", ds = None) -> PokeReturnValue:
         "Every 10 minutes throughout the day, run a function to log long running queries into a table."
         POSTGRES_CRED = PostgresHook(conn_id)
         fpath = os.path.join(repo_path, 'sql', 'insert-long_running_query_log.sql')
@@ -61,7 +61,7 @@ def monitor_db_sessions():
         
         with POSTGRES_CRED.get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, ('bigdata', 'bigdata'))
+                cur.execute(query, (ds, 'bigdata', 'bigdata'))
             conn.commit()
         
         return PokeReturnValue(is_done=False)
@@ -69,7 +69,7 @@ def monitor_db_sessions():
     report_queries = SQLCheckOperatorWithReturnValue(
         task_id="report_queries",
         sql="""SELECT COUNT(*) = 0 AS _check,
-            'There were ' || count(*) || ' long/blocking queries logged to `public.session_log` in the last day:' AS summ,
+            'There were ' || count(*) || ' long/blocking queries logged to `public.session_log WHERE ds = ''{{ ds }}''` in the last day:' AS summ,
             ARRAY_AGG('`' || usename || '`' || ' - `' || split_part(session_log.query, E'\n', 1) || '...`') AS queries
         FROM public.session_log
         WHERE backend_start::timestamp >= '{{ data_interval_start }}'""",
