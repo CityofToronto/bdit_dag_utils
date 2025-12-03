@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.session_log
     xact_start text COLLATE pg_catalog."default",
     backend_type text COLLATE pg_catalog."default",
     active_since numeric,
+    ds date,
     CONSTRAINT session_log_pkey PRIMARY KEY (pid, usename, backend_start)
 )
 
