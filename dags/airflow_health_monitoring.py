@@ -20,11 +20,9 @@ from requests.compat import urljoin
 from requests.exceptions import HTTPError, RequestException
 
 # pylint: disable=import-error
-from airflow.decorators import dag, task
-from airflow.models import Variable
-from airflow.hooks.base import BaseHook
+from airflow.sdk import dag, task, get_current_context, Variable
+from airflow.sdk.bases.hook import BaseHook
 from airflow.exceptions import AirflowFailException
-from airflow.sdk import get_current_context
 
 # absolute path to the repo
 REPO_PATH = os.path.abspath(
@@ -117,6 +115,7 @@ default_args = {
     catchup=False,
     max_active_runs=5,
     doc_md=__doc__,
+    tags=["bdit_dag_utils", "monitoring"],
     schedule="0 9 * * *",
 )
 def monitor_airflow_health() -> None:

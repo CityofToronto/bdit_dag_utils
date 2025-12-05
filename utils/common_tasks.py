@@ -3,13 +3,13 @@ from psycopg2 import sql, Error
 from typing import Tuple
 import logging
 import datetime
+
 # pylint: disable=import-error
-from airflow.decorators import task
+from airflow.sdk import task, Variable
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.sensors.base import PokeReturnValue
+from airflow.sdk.bases.sensor import PokeReturnValue
 from airflow.exceptions import AirflowFailException, AirflowSkipException
-from airflow.models import Variable
-from airflow.sensors.time_sensor import TimeSensor
+from airflow.providers.standard.sensors.time import TimeSensor
 
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -61,7 +61,7 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
         )
     
     #name mapped task
-    from airflow.operators.python import get_current_context
+    from airflow.sdk import get_current_context
     context = get_current_context()
     context["dest_table_name"] = table[1]
     
