@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 def is_prod_mode() -> bool:
     """Returns True if the code is running from the PROD ENV directory."""
-    prod_env_paths = Variable.get("prod_env_paths")
+    prod_env_paths = Variable.get("prod_env_paths", deserialize_json=True)
     dags_folder = os.path.dirname(os.path.realpath(__file__))
     
     for prod_path in prod_env_paths:
@@ -248,4 +248,5 @@ def check_not_empty(context: dict, conn_id:str, table:str) -> None:
             key="extra_msg",
             value=f"Failed to check `{table}` non-empty: `{str(e).strip()}`."
         )
+
         raise AirflowFailException(e)
