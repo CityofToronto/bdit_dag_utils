@@ -51,7 +51,7 @@ def task_fail_slack_alert(
     use_proxy: Optional[bool] = False,
     channel: Optional[str] = None,
     emoji: Optional[str] = ':large_red_square:',
-    troubleshooting_tips: Optional[str] = 'https://github.com/CityofToronto/bdit_data-sources/'
+    troubleshooting_tips: Optional[str] = None
 ) -> Any:
     """Sends Slack task-failure notifications.
 
@@ -102,6 +102,7 @@ def task_fail_slack_alert(
         Any: The result of executing the SlackWebhookNotifier.
     """
     ti = context["task_instance"]
+    dag_id = ti.dag_id
     slack_ids = Variable.get("slack_member_id", deserialize_json=True)
     owners = context.get('dag').owner.split(',')
     list_names = " ".join([slack_ids.get(name, name) for name in owners])
@@ -127,11 +128,7 @@ def task_fail_slack_alert(
         extra_msg_str = '\n> '.join(
             ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
         )
-
-    # the first part of the log_url is the dag homepage
-    dag_id = ti.dag_id
-    dag_url = log_url.split(dag_id)[0] + dag_id
-    
+        
     # Slack failure message
     if use_proxy:
         # Temporarily accessing Airflow on Morbius through 8080 instead of Nginx
@@ -150,10 +147,15 @@ def task_fail_slack_alert(
             "localhost", ti.hostname
         )
         proxy = None
+    
+    # the first part of the log_url is the dag homepage
+    dag_url = log_url.split(dag_id)[0] + dag_id
+    
     slack_msg = (
-        f"{emoji} {ti.dag_id}."
-        f"<{dag_url}|{dag_id}>.<{log_url}|{ti.task_id}>"
-        f"({context.get('ts_nodash_with_tz')}) FAILED.\n"
+        f"{emoji} "
+        f"*<{dag_url}|{dag_id}>.<{log_url}|{ti.task_id}>*"
+        f" *(`{context.get('run_id')}`)* *FAILED* "
+        f"{emoji}\n"
     )
     
     if extra_msg_str != "":
@@ -172,7 +174,7 @@ def task_fail_slack_alert(
                         },
                         {
                             "type": "mrkdwn",
-                            "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*",
+                            "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*" if troubleshooting_tips is not None else " ",
                         },
                     ],
                 },
