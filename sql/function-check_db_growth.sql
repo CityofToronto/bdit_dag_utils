@@ -1,0 +1,55 @@
+
+-- FUNCTION: public.check_db_growth(text, text)
+
+-- DROP FUNCTION IF EXISTS public.check_db_growth(text, text);
+
+CREATE OR REPLACE FUNCTION public.check_db_growth(
+    db_max_size text,
+    server text
+)
+RETURNS TABLE(_check boolean, summ text) 
+LANGUAGE SQL
+COST 100
+VOLATILE PARALLEL UNSAFE
+ROWS 1
+
+AS $BODY$
+    --noqa: disable=TMP
+    WITH ytd AS (
+        SELECT SUM(schema_size)
+        FROM public.schema_size_daily
+        WHERE dt = CURRENT_DATE - 1
+    )
+    
+    SELECT
+        CASE
+            --notify if less than 100 days till limit
+            WHEN (SUM(schema_size) - ytd.sum) * 100 + SUM(schema_size)
+                > pg_size_bytes(check_db_growth.db_max_size) THEN false
+            ELSE True
+        END AS _check,
+        'The :' || check_db_growth.server || ': database is growing at ' || pg_size_pretty(SUM(schema_size) - ytd.sum)
+        || ' per day and will exceed ' || check_db_growth.db_max_size || ' in '
+        || CASE WHEN (SUM(schema_size) - ytd.sum) = 0 THEN ':infinity:' ELSE
+        floor(
+            (pg_size_bytes(check_db_growth.db_max_size) - SUM(schema_size)) --distance to max
+            / (SUM(schema_size) - ytd.sum) --daily growth
+        )::text END || ' days at this rate. '
+        || 'The current size is ' || pg_size_pretty(ytd.sum) || '/' || '1.8TB'::text || ' limit.' AS summ
+    FROM public.schema_size_daily AS tdy, ytd
+    WHERE dt = CURRENT_DATE
+    GROUP BY ytd.sum;
+$BODY$;
+
+--ptc
+ALTER FUNCTION public.check_db_growth(text, text) OWNER TO postgres;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO postgres;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO ptc_humans;
+
+--bigdata
+ALTER FUNCTION public.check_db_growth(text, text) OWNER TO dbadmin;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO dbadmin;
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO bdit_humans;
+
+--both
+GRANT EXECUTE ON FUNCTION public.check_db_growth(text, text) TO ref_bot;
