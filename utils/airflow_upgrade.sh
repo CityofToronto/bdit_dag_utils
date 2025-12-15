@@ -43,6 +43,7 @@ backup_airflow() {
     cp /etc/systemd/system/airflow-api-server.service "${BACKUP_PATH}/files"
     cp /etc/systemd/system/airflow-dag-processor.service "${BACKUP_PATH}/files"
     cp /etc/systemd/system/airflow-scheduler.service "${BACKUP_PATH}/files"
+    cp /etc/systemd/system/airflow-triggerer.service "${BACKUP_PATH}/files"
     # backup the database
     echo "Enter the password of the PostgreSQL user: $PG_ADMIN"
     pg_dump -h $PG_HOST_ADDRESS -U $PG_ADMIN --create $OLD_PG_DATABASE > "${BACKUP_PATH}/files/database_`date +'%Y_%m_%d_%H_%M'`"
@@ -120,7 +121,7 @@ manage_airflow_services() {
     
     # Default services if none provided
     if [ ${#services[@]} -eq 0 ]; then
-        services=("airflow-scheduler" "airflow-api-server" "airflow-dag-processor")
+        services=("airflow-scheduler" "airflow-api-server" "airflow-dag-processor", "airflow-triggerer")
     fi
     
     # Determine sudo command
