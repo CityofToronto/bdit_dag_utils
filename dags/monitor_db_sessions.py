@@ -5,8 +5,8 @@ import pendulum
 from functools import partial
 from datetime import timedelta
 
-from airflow.decorators import dag, task
-from airflow.sensors.base import PokeReturnValue
+from airflow.sdk import dag, task
+from airflow.sdk.bases.sensor import PokeReturnValue
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 #for Airflow 3
