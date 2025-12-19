@@ -129,7 +129,7 @@ def task_fail_slack_alert(
             ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
         )
     #get log_url and fix typo
-    log_url = task_instance.log_url.replace("airflowdags", "airflow/dags")
+    log_url = ti.log_url.replace("airflowdags", "airflow/dags")
     if use_proxy:
         # Temporarily accessing Airflow on Morbius through 8080 instead of Nginx
         # Its hould be eventually removed
@@ -287,3 +287,4 @@ def check_not_empty(context: dict, conn_id:str, table:str) -> None:
         )
 
         raise AirflowFailException(e)
+
