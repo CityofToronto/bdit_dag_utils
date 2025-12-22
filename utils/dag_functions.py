@@ -188,6 +188,7 @@ def task_fail_slack_alert(
         proxy=proxy,
         attachments=attachments,
     )
+    notifier.notify(context=context)
 
 slack_alert_data_quality = partial(
     task_fail_slack_alert,
@@ -287,4 +288,5 @@ def check_not_empty(context: dict, conn_id:str, table:str) -> None:
         )
 
         raise AirflowFailException(e)
+
 
