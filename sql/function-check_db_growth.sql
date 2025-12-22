@@ -1,3 +1,4 @@
+
 -- FUNCTION: public.check_db_growth(text, text)
 
 -- DROP FUNCTION IF EXISTS public.check_db_growth(text, text);
@@ -29,10 +30,12 @@ AS $BODY$
         END AS _check,
         'The :' || check_db_growth.server || ': database is growing at ' || pg_size_pretty(SUM(schema_size) - ytd.sum)
         || ' per day and will exceed ' || check_db_growth.db_max_size || ' in '
-        || floor(
+        || CASE WHEN (SUM(schema_size) - ytd.sum) = 0 THEN ':infinity:' ELSE
+        floor(
             (pg_size_bytes(check_db_growth.db_max_size) - SUM(schema_size)) --distance to max
             / (SUM(schema_size) - ytd.sum) --daily growth
-        ) || ' days at this rate.' AS summ
+        )::text END || ' days at this rate. '
+        || 'The current size is ' || pg_size_pretty(ytd.sum) || '/' || check_db_growth.db_max_size || ' limit.' AS summ
     FROM public.schema_size_daily AS tdy, ytd
     WHERE dt = CURRENT_DATE
     GROUP BY ytd.sum;
