@@ -34,7 +34,8 @@ def slack_channel(channel: Optional[str] = None) -> str:
     "Returns a slack channel ID"
         
     valid_channels = [
-        'slack_data_pipeline', 'slack_data_pipeline_dev', 'slack_data_pipeline_data_quality'
+        'slack_data_pipeline', 'slack_data_pipeline_dev',
+        'slack_data_pipeline_data_quality', 'slack_prj_permanent_sensors'
     ]
     if channel in valid_channels:
         return channel
@@ -288,5 +289,6 @@ def check_not_empty(context: dict, conn_id:str, table:str) -> None:
         )
 
         raise AirflowFailException(e)
+
 
 
