@@ -40,10 +40,6 @@ from utils.dag_functions import (
 # pylint: enable=import-error
 # pylint: enable=wrong-import-position
 
-# Sections we check in the Airflow health API response
-CHECKED_ITEMS = ["metadatabase", "scheduler"]
-
-
 def pprint_response(msg: dict) -> str:
     """Prettifies a JSON request's response.
 
@@ -74,11 +70,11 @@ def pprint_response(msg: dict) -> str:
     return result
 
 
-def summarize_response(msg: dict) -> dict:
+def summarize_response(msg: dict, checked_items: list) -> dict:
     """Summarizes the Airflow health API JSON response.
 
     Summarizes the Airflow health API JSON response by including only sections
-    in ``CHECKED_ITEMS`` with unhealthy response.
+    in ``checked_items`` with unhealthy response.
 
     Args:
         msg (dict): Json-encoded content of a response.
@@ -88,7 +84,7 @@ def summarize_response(msg: dict) -> dict:
     """
     result = {}
     for key1, val1 in msg.items():
-        if key1 in CHECKED_ITEMS and val1["status"].lower() != "healthy":
+        if key1 in checked_items and val1["status"].lower() != "healthy":
             result[key1] = val1
     return pprint_response(result)
 
@@ -131,7 +127,9 @@ def monitor_airflow_health() -> None:
     @task
     def lookup_airflow_instances() -> None:
         deployment = os.environ.get("DEPLOYMENT", "PROD")
-        return Variable.get("airflow_health_monitoring_lookup", deserialize_json=True).get(deployment)
+        lookup = Variable.get("airflow_health_monitoring_lookup", deserialize_json=True)
+        servers = lookup.get(deployment)
+        return [*servers] #return keys (connections)
         
     @task(map_index_template="{{ hostname }}", retries=0)
     def check_airflow_health(conn_name, **context) -> None:
@@ -149,10 +147,13 @@ def monitor_airflow_health() -> None:
         #name mapped task
         context = get_current_context()
         context["hostname"] = hostname
-            
+        deployment = os.environ.get("DEPLOYMENT", "PROD")
+        lookup = Variable.get("airflow_health_monitoring_lookup", deserialize_json=True)
+        services_to_monitor = lookup.get(deployment).get(conn_name)
+        
         try:
             response = requests.get(
-                urljoin(con.host, "health"),
+                urljoin(con.host, "monitor/health"),
                 headers={"Content-Type": "application/json"},
                 auth=HTTPBasicAuth(con.login, con.password),
                 verify=False,
@@ -161,10 +162,19 @@ def monitor_airflow_health() -> None:
             raise AirflowFailException(err)
         except RequestException as err:
             raise AirflowFailException(err)
-        slack_msg = (
-            f"Daily Health Report of :{hostname}:'s Airflow:\n"
-        ) + summarize_response(response.json())
-        send_slack_msg(context=context, msg=slack_msg, use_proxy=True, channel = 'slack_data_pipeline')
+        print(response.json())
+        print(f"Checking services: {services_to_monitor}")
+        summarized = summarize_response(
+            msg=response.json(),
+            checked_items=services_to_monitor
+        )
+        slack_msg = f"Daily Health Report of :{hostname}:'s Airflow:\n" + summarized
+        send_slack_msg(
+            context=context,
+            msg=slack_msg,
+            use_proxy=True,
+            channel = 'slack_data_pipeline'
+        )
     
     connections = lookup_airflow_instances()
     check_airflow_health.expand(conn_name=connections)
