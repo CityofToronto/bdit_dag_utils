@@ -129,25 +129,17 @@ def task_fail_slack_alert(
         extra_msg_str = '\n> '.join(
             ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
         )
-    #get log_url and fix typo
-    log_url = ti.log_url.replace("airflowdags", "airflow/dags")
+    log_url = ti.log_url.replace(
+        "localhost", ti.hostname
+    )
+    proxy = None
     if use_proxy:
-        # Temporarily accessing Airflow on Morbius through 8080 instead of Nginx
-        # Its hould be eventually removed
-        log_url = ti.log_url.replace(
-            "localhost", ti.hostname + ":8080"
-        )
         # get the proxy credentials from the Airflow connection ``slack``. It
         # contains username and password to set the proxy <username>:<password>
         proxy=(
             f"http://{BaseHook.get_connection('slack').password}"
             f"@{json.loads(BaseHook.get_connection('slack').extra)['url']}"
         )
-    else:
-        log_url = ti.log_url.replace(
-            "localhost", ti.hostname
-        )
-        proxy = None
     
     # the first part of the log_url is the dag homepage
     dag_url = log_url.split(dag_id)[0] + dag_id
@@ -289,6 +281,7 @@ def check_not_empty(context: dict, conn_id:str, table:str) -> None:
         )
 
         raise AirflowFailException(e)
+
 
 
 
