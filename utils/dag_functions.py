@@ -7,12 +7,12 @@ import json
 import logging
 from typing import Optional, Callable, Any, Union
 from functools import partial
-from psycopg2 import sql, Error
+from psycopg import sql, Error
 
 from airflow.sdk import Variable
 from airflow.sdk.bases.hook import BaseHook
 from airflow.providers.slack.notifications.slack_webhook import SlackWebhookNotifier
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 LOGGER = logging.getLogger(__name__)
@@ -272,7 +272,7 @@ def check_not_empty(context: dict, conn_id:str, table:str) -> None:
                     value=f"`{table}` is empty. Copying not completed."
                 )
                 raise AirflowFailException(f"`{table}` is empty. Copying not completed.")
-    #catch psycopg2 errors:
+    #catch psycopg errors:
     except Error as e:
         # push an extra failure message to be sent to Slack in case of failing
         context["task_instance"].xcom_push(

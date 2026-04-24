@@ -8,9 +8,9 @@ This file contains the following custom operators:
    ``SQLCheckOperator``.
 """
 from airflow.providers.common.sql.operators.sql import SQLCheckOperator
-from airflow.exceptions import AirflowException
-from airflow.utils.context import Context
-import psycopg2
+from airflow.sdk.exceptions import AirflowException
+from airflow.sdk.execution_time import context
+import psycopg
 
 class SQLCheckOperatorWithReturnValue(SQLCheckOperator):
     """A custom Airflow SQLCheckOperator that extends the original operator.
@@ -25,7 +25,7 @@ class SQLCheckOperatorWithReturnValue(SQLCheckOperator):
 
     """
 
-    def execute(self, context: Context = None):
+    def execute(self, context: context = None):
         """Executes the Airflow operator.
 
         It runs the given sql query to check its result. It also returns the
@@ -54,7 +54,7 @@ class SQLCheckOperatorWithReturnValue(SQLCheckOperator):
                 handler=lambda cursor: cursor.fetchone(),
                 autocommit=True,
             )
-        except psycopg2.Error as e:
+        except psycopg.Error as e:
             context.get("task_instance").xcom_push(key="extra_msg", value=str(e))
             raise AirflowException(e)
             

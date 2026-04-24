@@ -1,5 +1,5 @@
 
-from psycopg2 import sql, Error
+from psycopg import sql, Error
 from typing import Tuple
 import logging
 import datetime
@@ -8,7 +8,7 @@ import datetime
 from airflow.sdk import task, Variable
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sdk.bases.sensor import PokeReturnValue
-from airflow.exceptions import AirflowFailException, AirflowSkipException
+from airflow.sdk.exceptions import AirflowFailException, AirflowSkipException
 from airflow.providers.standard.sensors.time import TimeSensor
 
 LOGGER = logging.getLogger(__name__)
@@ -154,7 +154,7 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
             cur.execute(truncate_query)
             cur.execute(insert_query)
             cur.execute(comment_query, (comment,))
-    #catch psycopg2 errors:
+    #catch psycopg errors:
     except Error as e:
         # push an extra failure message to be sent to Slack in case of failing
         context["task_instance"].xcom_push(
