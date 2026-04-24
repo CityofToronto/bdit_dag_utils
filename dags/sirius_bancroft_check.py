@@ -4,7 +4,7 @@ import sys
 import os
 import pandas as pd
 from datetime import datetime, timedelta
-from psycopg2 import sql
+from psycopg import sql
 import pendulum
 from functools import partial
 
