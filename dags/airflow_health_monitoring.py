@@ -22,7 +22,7 @@ from requests.exceptions import HTTPError, RequestException
 # pylint: disable=import-error
 from airflow.sdk import dag, task, get_current_context, Variable
 from airflow.sdk.bases.hook import BaseHook
-from airflow.exceptions import AirflowFailException
+from airflow.sdk.exceptions import AirflowFailException
 
 # absolute path to the repo
 REPO_PATH = os.path.abspath(
@@ -35,6 +35,7 @@ from utils.dag_functions import (
     task_fail_slack_alert,
     send_slack_msg,
 )
+from dags.dag_owners import owners
 
 # pylint: enable=pointless-statement
 # pylint: enable=import-error
@@ -90,9 +91,7 @@ def summarize_response(msg: dict, checked_items: list) -> dict:
 
 
 DAG_NAME = "airflow_health_monitoring"
-DAG_OWNERS = Variable.get("dag_owners", deserialize_json=True).get(
-    DAG_NAME, ["Unknown"]
-)
+DAG_OWNERS = owners.get(DAG_NAME, ["Unknown"])
 SLACK_CONN_ID = "slack_data_pipeline"
 
 default_args = {
