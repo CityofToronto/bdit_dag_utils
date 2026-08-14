@@ -145,15 +145,16 @@ def copy_table(conn_id:str, table:Tuple[str, ...], **context) -> None:
             # identify object type and prepare comment query
             cur.execute(obj_type_query, [comment_schema, comment_table])
             object_type = cur.fetchone()[0]
-            comment_query = sql.SQL('COMMENT ON {obj_type} {dst_sch}.{dst_tbl} IS %s').format(
+            comment_query = sql.SQL('COMMENT ON {obj_type} {dst_sch}.{dst_tbl} IS {comment}').format(
                 obj_type = sql.SQL(object_type),
                 dst_sch = sql.Identifier(comment_schema),
-                dst_tbl = sql.Identifier(comment_table)
+                dst_tbl = sql.Identifier(comment_table),
+                comment = sql.Literal(comment)
             )
             # truncate, insert, and comment
             cur.execute(truncate_query)
             cur.execute(insert_query)
-            cur.execute(comment_query, (comment,))
+            cur.execute(comment_query)
     #catch psycopg errors:
     except Error as e:
         # push an extra failure message to be sent to Slack in case of failing
