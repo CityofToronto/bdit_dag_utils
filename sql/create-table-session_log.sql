@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS public.session_log
 (
     pid integer NOT NULL,
-    usename name COLLATE pg_catalog."C" NOT NULL,
+    usename name COLLATE pg_catalog."C",
     application_name text COLLATE pg_catalog."default",
     backend_start timestamp without time zone NOT NULL,
     state text COLLATE pg_catalog."default",
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.session_log
     backend_type text COLLATE pg_catalog."default",
     active_since numeric,
     ds date,
-    CONSTRAINT session_log_pkey PRIMARY KEY (pid, usename, backend_start)
+    CONSTRAINT session_log_pkey PRIMARY KEY (pid, backend_start)
 )
 
 TABLESPACE pg_default;
