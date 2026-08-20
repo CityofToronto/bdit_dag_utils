@@ -121,7 +121,7 @@ manage_airflow_services() {
     
     # Default services if none provided
     if [ ${#services[@]} -eq 0 ]; then
-        services=("airflow-scheduler" "airflow-api-server" "airflow-dag-processor", "airflow-triggerer")
+        services=("airflow-scheduler" "airflow-api-server" "airflow-dag-processor" "airflow-triggerer")
     fi
     
     # Determine sudo command
