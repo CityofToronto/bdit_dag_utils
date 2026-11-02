@@ -4,7 +4,7 @@ RETURNS TABLE (
 ) AS $$
 
 WITH disk_space AS (
-    SELECT 'VACUUM FULL ONLY ' || n.nspname || '.' || c.relname || ';' AS vacuum_query, c.oid AS disk_space
+    SELECT 'VACUUM FULL ' || n.nspname || '.' || c.relname || ';' AS vacuum_query, c.oid AS disk_space
     FROM pg_namespace AS n
     JOIN pg_catalog.pg_class AS c
         ON c.relnamespace = n.oid
@@ -17,7 +17,7 @@ FROM disk_space
 
 UNION
 
-SELECT 'SELECT dbadmin.space_saved(''' || mnth || ''', ' || SUM(pg_total_relation_size(disk_space)) || ');'
+SELECT 'SELECT dbadmin.vacuum_space_saved(''' || mnth || ''', ' || SUM(pg_total_relation_size(disk_space)) || ');'
 FROM disk_space
 ORDER BY 1 DESC; --correctly puts select after vacuum
 

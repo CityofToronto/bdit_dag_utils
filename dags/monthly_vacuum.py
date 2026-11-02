@@ -7,6 +7,8 @@ from functools import partial
 from datetime import timedelta
 
 from airflow.sdk import dag, task, get_current_context
+from airflow.sdk.execution_time.macros import ds_format
+from airflow.sdk.bases.hook import BaseHook
 
 try:
     repo_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -65,13 +67,13 @@ def create_vacuum_dag(dag_id, dag_conn_id, server, default_args):
     def monthly_vacuum():
 
         @task.bash(env=BASH_ENV)
-        def create_queries() -> str:
-            # The last line printed to stdout becomes the task's XCom return value
-            return '''
+        def create_queries(ds = None) -> str:
+            mnth = ds_format(ds, '%Y-%m-%d', '%Y-%m-01')
+            return f'''
                 set -euo pipefail
                 filename="/data/airflow/dag_output/vacuum_queries_$(date +%Y%m%d_%H%M%S).sql"
                 /usr/bin/psql -h $HOST -d bigdata -U $LOGIN \
-                    -c "SELECT dbadmin.monthly_vacuum_queries('2026-01-01');" \
+                    -c "SELECT dbadmin.monthly_vacuum_queries('{mnth}');" \
                     --tuples-only -o "$filename"
                 echo "$filename"
             '''
@@ -79,10 +81,11 @@ def create_vacuum_dag(dag_id, dag_conn_id, server, default_args):
         @task
         def notify_user(filepath: str):
             context = get_current_context()
+            conn = BaseHook.get_connection(dag_conn_id)
             msg = (
                 f"Monthly vacuum queries have been generated on `{server}`.\n"
                 f"Please review and run them with:\n"
-                f"`nohup psql -d bigdata -U dbadmin -f {filepath}`"
+                f"`nohup psql -d bigdata -U dbadmin -h {conn.host} -f {filepath}`"
             )
             send_slack_msg(
                 context=context,
