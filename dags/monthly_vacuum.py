@@ -6,18 +6,17 @@ import pendulum
 from functools import partial
 from datetime import timedelta
 
-from airflow.sdk import dag
+from airflow.sdk import dag, task, get_current_context
 
 try:
     repo_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     sys.path.insert(0, repo_path)
-    from utils.dag_functions import task_fail_slack_alert
+    from utils.dag_functions import task_fail_slack_alert, send_slack_msg
     from dags.dag_owners import owners
-except:
+except ImportError:
     raise ImportError("Cannot import slack alert functions")
-    
+
 LOGGER = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
 
 doc_md = ""
 DAG_NAME = 'monthly_vacuum'
@@ -58,28 +57,44 @@ def create_vacuum_dag(dag_id, dag_conn_id, server, default_args):
         dag_id,
         default_args=default_args,
         schedule='0 8 3 * *',
-        doc_md = doc_md,
+        doc_md=doc_md,
         tags=["bdit_dag_utils", "monitoring"],
         template_searchpath=os.path.join(repo_path, 'sql'),
-        catchup=False
+        catchup=False,
     )
-
     def monthly_vacuum():
-        
-        @task.bash(env = BASH_ENV)
-        def create_queries()->str:
+
+        @task.bash(env=BASH_ENV)
+        def create_queries() -> str:
+            # The last line printed to stdout becomes the task's XCom return value
             return '''
+                set -euo pipefail
                 filename="/data/airflow/dag_output/vacuum_queries_$(date +%Y%m%d_%H%M%S).sql"
-                /usr/bin/psql -h $HOST -d bigdata -U $LOGIN -c \
-                    "SELECT dbadmin.monthly_vacuum_queries('2026-01-01');" --tuples-only -o "$filename"
+                /usr/bin/psql -h $HOST -d bigdata -U $LOGIN \
+                    -c "SELECT dbadmin.monthly_vacuum_queries('2026-01-01');" \
+                    --tuples-only -o "$filename"
+                echo "$filename"
             '''
-        )
 
-        create_queries()
+        @task
+        def notify_user(filepath: str):
+            context = get_current_context()
+            msg = (
+                f"Monthly vacuum queries have been generated on `{server}`.\n"
+                f"Please review and run them with:\n"
+                f"`nohup psql -d bigdata -U dbadmin -f {filepath}`"
+            )
+            send_slack_msg(
+                context=context,
+                msg=msg,
+                use_proxy=(server != 'ec2'),
+            )
 
-    generated_dag = monthly_vacuum()
-    return generated_dag
-    
+        notify_user(create_queries())
+
+    return monthly_vacuum()
+
+
 for server in deployments:
     dag_id = f"{DAG_NAME}_{server}"
     if server == 'ec2':
@@ -89,18 +104,18 @@ for server in deployments:
     
     default_args = {
         'owner': ','.join(DAG_OWNERS),
-        'depends_on_past':False,
+        'depends_on_past': False,
         'start_date': pendulum.datetime(2025, 4, 10, tz="America/Toronto"),
         'email_on_failure': False,
         'email_on_success': False,
         'retries': 0,
         'retry_delay': timedelta(minutes=5),
-        'on_failure_callback': fail_fn
+        'on_failure_callback': fail_fn,
     }
-    
+
     conn_id = deployments[server]["conn_id"]
-    
-    #register DAG
+
+    # register DAG
     globals()[dag_id] = create_vacuum_dag(
         dag_id, conn_id, server, default_args
     )
