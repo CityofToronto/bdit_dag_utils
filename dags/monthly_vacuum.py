@@ -58,7 +58,7 @@ def create_vacuum_dag(dag_id, dag_conn_id, server, default_args):
     @dag(
         dag_id,
         default_args=default_args,
-        schedule='0 8 3 * *',
+        schedule='45 16 3 * *',
         doc_md=doc_md,
         tags=["bdit_dag_utils", "monitoring"],
         template_searchpath=os.path.join(repo_path, 'sql'),
