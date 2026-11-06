@@ -54,7 +54,8 @@ def task_fail_slack_alert(
     emoji: Optional[str] = ':large_red_square:',
     colour: Optional[str] = '#F44336',
     troubleshooting_tips: Optional[str] = None,
-    include_header: Optional[bool] = True
+    include_header: Optional[bool] = True,
+    include_owners: Optional[bool] = True
 ) -> Any:
 
     ti = context["task_instance"]
@@ -92,7 +93,8 @@ def task_fail_slack_alert(
         emoji=emoji,
         colour=colour,
         troubleshooting_tips=troubleshooting_tips,
-        include_header=include_header
+        include_header=include_header,
+        include_owners=include_owners
     )
 
 
@@ -104,7 +106,8 @@ def send_slack_msg(
     emoji: Optional[str] = ':large_green_square:',
     colour: Optional[str] = "#7CB342",
     troubleshooting_tips: Optional[str] = None,
-    include_header: Optional[bool] = True
+    include_header: Optional[bool] = True,
+    include_owners: Optional[bool] = False
 ) -> Any:
     """Sends Slack task-failure notifications.
     
@@ -186,11 +189,11 @@ def send_slack_msg(
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": f"*Owner(s):* {list_names}",
+                            "text": f"*Owner(s):* {list_names}" if include_owners is True else "",
                         },
                         {
                             "type": "mrkdwn",
-                            "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*" if troubleshooting_tips is not None else " ",
+                            "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*" if troubleshooting_tips is not None else "",
                         },
                     ],
                 },
