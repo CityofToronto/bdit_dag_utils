@@ -180,26 +180,40 @@ def send_slack_msg(
         msg = header + msg
 
     list_names = " ".join([slack_ids.get(name, name) for name in owners])
+
+    # dynamic attachments if fields (owners, ttips) exist, and 
+    # excluding blocks/fields if they don't exist so Slack does not get upset
+    fields = []
+
+    if include_owners:
+        fields.append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Owner(s):* {list_names}",
+            }
+        )
+    
+    if troubleshooting_tips is not None:
+        fields.append(
+            {
+                "type": "mrkdwn",
+                "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*"
+            }
+        )
+
     attachments = [
         {
             "color": colour,
-            "blocks": [
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Owner(s):* {list_names}" if include_owners is True else "",
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*" if troubleshooting_tips is not None else "",
-                        },
-                    ],
-                },
-            ],
         },
     ]
+
+    if fields:
+        attachments[0]["blocks"] = [
+            {
+                "type": "section",
+                "fields": fields,
+            }
+        ]
 
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
