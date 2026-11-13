@@ -162,8 +162,6 @@ def send_slack_msg(
         dag_id = ti.dag_id
         state = ti.state.upper()
         state = 'SUCCESS' if state == 'RUNNING' else state
-        slack_ids = Variable.get("slack_member_id", deserialize_json=True)
-        owners = context.get('dag').owner.split(',')
         log_url = ti.log_url.replace(
             "localhost", ti.hostname
         )
@@ -179,13 +177,15 @@ def send_slack_msg(
         )
         msg = header + msg
 
-    list_names = " ".join([slack_ids.get(name, name) for name in owners])
 
     # dynamic attachments if fields (owners, ttips) exist, and 
     # excluding blocks/fields if they don't exist so Slack does not get upset
     fields = []
 
     if include_owners:
+        slack_ids = Variable.get("slack_member_id", deserialize_json=True)
+        owners = context.get('dag').owner.split(',')
+        list_names = " ".join([slack_ids.get(name, name) for name in owners])
         fields.append(
             {
                 "type": "mrkdwn",
