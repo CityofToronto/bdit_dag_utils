@@ -101,7 +101,12 @@ default_args = {
     "email_on_failure": False,
     "retries": 0,
     "retry_delay": timedelta(minutes=60),
-    "on_failure_callback": partial(task_fail_slack_alert, use_proxy = True, channel = 'slack_data_pipeline'),
+    "on_failure_callback": partial(
+        task_fail_slack_alert,
+        use_proxy = True,
+        channel = 'slack_data_pipeline',
+        emoji=':airflow-tire-fire:'
+    ),
 }
 
 @dag(
@@ -172,7 +177,8 @@ def monitor_airflow_health() -> None:
             context=context,
             msg=slack_msg,
             use_proxy=True,
-            channel = 'slack_data_pipeline'
+            channel = 'slack_data_pipeline',
+            emoji=':airflow:'
         )
     
     connections = lookup_airflow_instances()
