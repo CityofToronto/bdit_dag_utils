@@ -52,7 +52,62 @@ def task_fail_slack_alert(
     use_proxy: Optional[bool] = False,
     channel: Optional[str] = None,
     emoji: Optional[str] = ':large_red_square:',
-    troubleshooting_tips: Optional[str] = None
+    colour: Optional[str] = '#F44336',
+    troubleshooting_tips: Optional[str] = None,
+    include_header: Optional[bool] = True,
+    include_owners: Optional[bool] = True
+) -> Any:
+
+    ti = context["task_instance"]
+    # get the extra message from the calling task, if provided
+    extra_msg_from_task = ti.xcom_pull(
+            task_ids=ti.task_id,
+            map_indexes=ti.map_index,
+            key="extra_msg"
+        )
+
+    if callable(extra_msg):
+        # in case of function
+        extra_msg_str = extra_msg(context)
+    elif extra_msg == "" and extra_msg_from_task is not None:
+        # in case the the extra message is passed from inside the task via xcom
+        extra_msg_str = extra_msg_from_task
+    else:
+        # in case of a string (or the default empty string)
+        extra_msg_str = extra_msg
+        
+    #recursively join list/tuple extra_msg_str into string
+    if isinstance(extra_msg_str, (list, tuple)):
+        extra_msg_str = '\n> '.join(
+            ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
+        )
+    
+    if extra_msg_str != "":
+        slack_msg = slack_msg + extra_msg_str
+
+    send_slack_msg(
+        context=context,
+        msg=extra_msg,
+        use_proxy=use_proxy,
+        channel=channel,
+        emoji=emoji,
+        colour=colour,
+        troubleshooting_tips=troubleshooting_tips,
+        include_header=include_header,
+        include_owners=include_owners
+    )
+
+
+def send_slack_msg(
+    context: dict,
+    msg: str,
+    use_proxy: Optional[bool] = False,
+    channel: Optional[str] = None,
+    emoji: Optional[str] = ':large_green_square:',
+    colour: Optional[str] = "#7CB342",
+    troubleshooting_tips: Optional[str] = None,
+    include_header: Optional[bool] = True,
+    include_owners: Optional[bool] = False
 ) -> Any:
     """Sends Slack task-failure notifications.
     
@@ -102,91 +157,77 @@ def task_fail_slack_alert(
     Returns:
         Any: The result of executing the SlackWebhookNotifier.
     """
-    ti = context["task_instance"]
-    dag_id = ti.dag_id
-    slack_ids = Variable.get("slack_member_id", deserialize_json=True)
-    owners = context.get('dag').owner.split(',')
-    list_names = " ".join([slack_ids.get(name, name) for name in owners])
-    # get the extra message from the calling task, if provided
-    extra_msg_from_task = ti.xcom_pull(
-            task_ids=ti.task_id,
-            map_indexes=ti.map_index,
-            key="extra_msg"
+    if include_header:
+        ti = context["task_instance"]
+        dag_id = ti.dag_id
+        state = ti.state.upper()
+        state = 'SUCCESS' if state == 'RUNNING' else state
+        log_url = ti.log_url.replace(
+            "localhost", ti.hostname
+        )
+        
+        # the first part of the log_url is the dag homepage
+        dag_url = log_url.split(dag_id)[0] + dag_id
+        
+        header = (
+            f"{emoji} "
+            f"*<{dag_url}|{dag_id}>.<{log_url}|{ti.task_id}>*"
+            f" *(`{context.get('run_id')}`)* *{state}* "
+            f"{emoji}\n"
+        )
+        msg = header + msg
+
+
+    # dynamic attachments if fields (owners, ttips) exist, and 
+    # excluding blocks/fields if they don't exist so Slack does not get upset
+    fields = []
+
+    if include_owners:
+        slack_ids = Variable.get("slack_member_id", deserialize_json=True)
+        owners = context.get('dag').owner.split(',')
+        list_names = " ".join([slack_ids.get(name, name) for name in owners])
+        fields.append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Owner(s):* {list_names}",
+            }
+        )
+    
+    if troubleshooting_tips is not None:
+        fields.append(
+            {
+                "type": "mrkdwn",
+                "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*"
+            }
         )
 
-    if callable(extra_msg):
-        # in case of function
-        extra_msg_str = extra_msg(context)
-    elif extra_msg == "" and extra_msg_from_task is not None:
-        # in case the the extra message is passed from inside the task via xcom
-        extra_msg_str = extra_msg_from_task
-    else:
-        # in case of a string (or the default empty string)
-        extra_msg_str = extra_msg
-        
-    #recursively join list/tuple extra_msg_str into string
-    if isinstance(extra_msg_str, (list, tuple)):
-        extra_msg_str = '\n> '.join(
-            ['\n> '.join(item) if isinstance(item, (list, tuple)) else str(item) for item in extra_msg_str]
-        )
-    log_url = ti.log_url.replace(
-        "localhost", ti.hostname
-    )
-    proxy = None
-    if use_proxy:
-        # get the proxy credentials from the Airflow connection ``slack``. It
-        # contains username and password to set the proxy <username>:<password>
-        proxy=(
-            f"http://{BaseHook.get_connection('slack').password}"
-            f"@{json.loads(BaseHook.get_connection('slack').extra)['url']}"
-        )
-    
-    # the first part of the log_url is the dag homepage
-    dag_url = log_url.split(dag_id)[0] + dag_id
-    
-    slack_msg = (
-        f"{emoji} "
-        f"*<{dag_url}|{dag_id}>.<{log_url}|{ti.task_id}>*"
-        f" *(`{context.get('run_id')}`)* *FAILED* "
-        f"{emoji}\n"
-    )
-    
-    if extra_msg_str != "":
-        slack_msg = slack_msg + extra_msg_str
-    
     attachments = [
         {
-            "color": "#FF0000",
-            "blocks": [
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*Owner(s):* {list_names}",
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*" if troubleshooting_tips is not None else " ",
-                        },
-                    ],
-                },
-            ],
+            "color": colour,
         },
     ]
 
+    if fields:
+        attachments[0]["blocks"] = [
+            {
+                "type": "section",
+                "fields": fields,
+            }
+        ]
+
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
-        text=slack_msg,
-        proxy=proxy,
+        text=msg,
         attachments=attachments,
+        proxy=get_proxy(use_proxy),
     )
     notifier.notify(context=context)
 
 slack_alert_data_quality = partial(
     task_fail_slack_alert,
     channel="slack_data_pipeline_data_quality",
-    emoji=":large_yellow_square:"
+    emoji=":large_yellow_square:",
+    colour="#FFCC32"
 )
 
 def get_readme_docmd(readme_path, dag_name):
@@ -224,37 +265,6 @@ def get_proxy(use_proxy: Optional[bool] = False):
     else:
         proxy = None
     return proxy
-
-def send_slack_msg(
-    context: dict,
-    msg: str,
-    attachments: Optional[list] = None,
-    blocks: Optional[list] = None,
-    use_proxy: Optional[bool] = False,
-    channel: Optional[str] = None
-) -> Any:
-    """Sends a message to Slack.
-
-    Args:
-        context: The calling Airflow task's context.
-        msg : A string message be sent to Slack.
-        attachments: List of dictionaries representing Slack attachments.
-        blocks: List of dictionaries representing Slack blocks.
-        use_proxy: A boolean to indicate whether to use a proxy or not. Proxy
-            usage is required to make the Slack webhook call on on-premises
-            servers (default False).
-        channel: ID of the Airflow connection with the details of the
-            Slack channel to send messages to.
-    """
-
-    notifier = SlackWebhookNotifier(
-        slack_webhook_conn_id=slack_channel(channel),
-        text=msg,
-        attachments=attachments,
-        blocks=blocks,
-        proxy=get_proxy(use_proxy),
-    )
-    notifier.notify(context=context)
 
 def check_not_empty(context: dict, conn_id:str, table:str) -> None:
     con = PostgresHook(conn_id).get_conn()
