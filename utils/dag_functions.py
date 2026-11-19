@@ -4,6 +4,7 @@
 import os
 import re
 import json
+import copy
 import logging
 from typing import Optional, Callable, Any, Union
 from functools import partial
@@ -101,6 +102,7 @@ def task_fail_slack_alert(
 def send_slack_msg(
     context: dict,
     msg: str,
+    attachments: Optional[list] = None,
     use_proxy: Optional[bool] = False,
     channel: Optional[str] = None,
     emoji: Optional[str] = ':large_green_square:',
@@ -200,20 +202,30 @@ def send_slack_msg(
                 "text": f"*<{troubleshooting_tips}|Troubleshooting Tips>*"
             }
         )
-
-    attachments = [
-        {
-            "color": colour,
-        },
-    ]
+    
+    # Start from what the caller passed (copied so we don't mutate their list)
+    attachments = copy.deepcopy(attachments) if attachments else [{}]
+    attachment = attachments[0]
+    attachment.setdefault("color", colour)
 
     if fields:
-        attachments[0]["blocks"] = [
-            {
+        blocks = attachment.setdefault("blocks", [])
+
+        # Slack tends to ignore a legacy "text" key once "blocks" are present,
+        # so move it into a section block to keep it visible
+        if attachment.get("text"):
+            blocks.insert(0, {
                 "type": "section",
-                "fields": fields,
-            }
-        ]
+                "text": {"type": "mrkdwn", "text": attachment.pop("text")},
+            })
+
+        section = next((b for b in reversed(blocks) if b.get("type") == "section"), None)
+
+        for field in fields:
+            if section is None or len(section.get("fields", [])) >= 10:
+                section = {"type": "section", "fields": []}
+                blocks.append(section)
+            section.setdefault("fields", []).append(field)
 
     notifier = SlackWebhookNotifier(
         slack_webhook_conn_id=slack_channel(channel),
