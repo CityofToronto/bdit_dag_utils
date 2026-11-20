@@ -50,6 +50,7 @@ def slack_channel(channel: Optional[str] = None) -> str:
 def task_fail_slack_alert(
     context: dict,
     extra_msg: Optional[Union[str, Callable[..., str]]] = "",
+    attachments: Optional[list] = None,
     use_proxy: Optional[bool] = False,
     channel: Optional[str] = None,
     emoji: Optional[str] = ':large_red_square:',
@@ -58,6 +59,59 @@ def task_fail_slack_alert(
     include_header: Optional[bool] = True,
     include_owners: Optional[bool] = True
 ) -> Any:
+    """Send a Slack on_failure_callback notification for an Airflow task.
+
+    Posts a message to Slack via ``send_slack_msg``. This functions contains default
+    values which are typically used for failure callbacks.
+    By default the message is prefixed with a header linking to the DAG and task log
+    as well as the DAG owner(s). It is styled with red emojis and red block colours.
+    
+    Example:
+        Send a custom message when a task fails:
+        
+            from bdit_dag_utils.utils.dag_functions import send_slack_msg
+            
+            #set the failure callback in all tasks by default
+            default_args = {
+                'owner': ','.join(DAG_OWNERS),
+                'on_failure_callback': partial(task_fail_slack_alert, use_proxy = True),
+            }
+
+            @dag(
+                dag_id=DAG_NAME,
+                default_args=default_args,
+                schedule='0 12 1 * *',
+            )
+            def open_data_dag():
+
+    Args:
+        context: The calling Airflow task's context.
+        extra_msg: An extra message passed via Airflow XCOM with key: 'extra_msg'.
+        attachments: Slack attachments to send. Only the first attachment is
+            modified (a ``color`` is set if missing, and owner/troubleshooting
+            fields are added as section blocks). The list is deep-copied, so
+            the caller's object is not mutated. Defaults to a single empty
+            attachment.
+        use_proxy: Whether to route the Slack webhook call through a proxy.
+            Required for on-premises servers. Default False.
+        channel: Name used to look up the Airflow connection holding the Slack
+            channel's webhook details (resolved by ``slack_channel``). If None,
+            the default channel is used.
+        emoji: Emoji shown on both sides of the header. Default
+            ``:large_red_square:``.
+        colour: Hex colour of the attachment sidebar, applied only if the
+            attachment doesn't already set ``color``. Default ``"#F44336"`` (Red).
+        troubleshooting_tips: URL to troubleshooting documentation. If given,
+            a "Troubleshooting Tips" link is added as an attachment.
+        include_header: Whether to prepend a header with the emoji, linked
+            DAG id and task id, run id, and task state. Default True.
+        include_owners: Whether to add a field listing the DAG owner(s),
+            mentioning them by Slack member ID where the ``slack_member_id``
+            Airflow Variable has an entry for them. Default True.
+
+    Returns:
+        Any: The result of ``SlackWebhookNotifier.notify``.
+    """
 
     ti = context["task_instance"]
     # get the extra message from the calling task, if provided
@@ -89,6 +143,7 @@ def task_fail_slack_alert(
     send_slack_msg(
         context=context,
         msg=extra_msg,
+        attachments=attachments,
         use_proxy=use_proxy,
         channel=channel,
         emoji=emoji,
@@ -111,53 +166,57 @@ def send_slack_msg(
     include_header: Optional[bool] = True,
     include_owners: Optional[bool] = False
 ) -> Any:
-    """Sends Slack task-failure notifications.
-    
-    Failure callback function to send notifications to Slack upon the failure
-    of an Airflow task.
+    """Send a Slack notification for an Airflow task.
+
+    Posts a message to Slack via ``SlackWebhookNotifier``. Can also be used to send
+    failure callbacks as via ``task_fail_slack_alert``.
+    By default the message is prefixed with a header linking to the DAG and task log.
+    Optionally, the DAG owner(s) and a link to troubleshooting tips are appended
+    as attachments, in addition to any attachment blocks passed to the function.
     
     Example:
-        This function can be passed as a failure callback to DAG's default_args
-        like this::
+        Send a custom message when a task fails:
         
-            import sys
-            import os
-            import pendulum
-            from functools import partial
-            from airflow import DAG
-            from airflow.operators.bash import BashOperator
+            from bdit_dag_utils.utils.dag_functions import send_slack_msg
             
-            repo_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-            sys.path.insert(0, repo_path)
-            from dags.dag_functions import task_fail_slack_alert
-            
-            with DAG(
-                dag_id = dag_name,
-                start_date=pendulum.datetime(2023, 8, 28, tz="America/Toronto")
-            ) as dag:
-                t = BashOperator(
-                    task_id="failing_task",
-                    bash_command="exit 1",
-                    on_failure_callback= partial(
-                        task_fail_slack_alert, extra_msg="My custom message"
-                    )
+            @task
+            def send_msg():
+                send_slack_msg(
+                    msg="My custom message",
+                    emoji=":red_circle:",
+                    colour="#E53935",
+                    include_owners=True,
                 )
-                
+            )
+
     Args:
-        context: The calling Airflow task's context
-        extra_msg: An extra string message or a function that
-            generates an extra message to be appended to the default
-            notification (default '', which forces the function to look for any
-            XCom with key ``extra_msg`` returned from the failing task;
-            otherwise, no extra message is added to the standard one).
-        use_proxy: A boolean to indicate whether to use a proxy or not. Proxy
-            usage is required to make the Slack webhook call on on-premises
-            servers (default False).
-        channel: ID of the Airflow connection with the details of the
-            Slack channel to send messages to.
-    
+        context: The calling Airflow task's context.
+        msg: The message body. If ``include_header`` is True, the header is
+            prepended to this text.
+        attachments: Slack attachments to send. Only the first attachment is
+            modified (a ``color`` is set if missing, and owner/troubleshooting
+            fields are added as section blocks). The list is deep-copied, so
+            the caller's object is not mutated. Defaults to a single empty
+            attachment.
+        use_proxy: Whether to route the Slack webhook call through a proxy.
+            Required for on-premises servers. Default False.
+        channel: Name used to look up the Airflow connection holding the Slack
+            channel's webhook details (resolved by ``slack_channel``). If None,
+            the default channel is used.
+        emoji: Emoji shown on both sides of the header. Default
+            ``:large_green_square:``.
+        colour: Hex colour of the attachment sidebar, applied only if the
+            attachment doesn't already set ``color``. Default ``"#7CB342"`` (Green).
+        troubleshooting_tips: URL to troubleshooting documentation. If given,
+            a "Troubleshooting Tips" link is added as an attachment.
+        include_header: Whether to prepend a header with the emoji, linked
+            DAG id and task id, run id, and task state. Default True.
+        include_owners: Whether to add a field listing the DAG owner(s),
+            mentioning them by Slack member ID where the ``slack_member_id``
+            Airflow Variable has an entry for them. Default False.
+
     Returns:
-        Any: The result of executing the SlackWebhookNotifier.
+        Any: The result of ``SlackWebhookNotifier.notify``.
     """
     if include_header:
         ti = context["task_instance"]
