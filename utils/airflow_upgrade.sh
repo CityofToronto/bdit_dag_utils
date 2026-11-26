@@ -18,6 +18,25 @@ update_file() {
     fi
 }
 
+# run command $@ as the airflow user: via sudo on ubuntu, directly on-prem (using pbrun su - airflow)
+as_airflow() {
+    if (check_os | grep -q 'ubuntu'); then
+        sudo -u airflow "$@"
+    else
+        "$@"
+    fi
+}
+
+# for running commands as airflow user via ubuntu sudo
+run_as_airflow() {
+    as_airflow bash -c '
+        set -a; [[ -f "$1" ]] && source "$1"; set +a
+        [[ -e "$2/bin/activate" ]] && source "$2/bin/activate"
+        shift 2
+        "$@"
+    ' _ "$ENV_FILE" "$AIRFLOW_VENV" "$@"
+}
+
 backup_airflow() {
     # create the backup folder if it doesn't exist
     [[ ! -d $BACKUP_PATH ]] && mkdir $BACKUP_PATH
@@ -65,19 +84,19 @@ setup_venv() {
         if [ ${overwrite_flag,,} == 'n' ]; then
             exit 1
         else
-            rm -rf $AIRFLOW_VENV
+            run_as_airflow rm -rf $AIRFLOW_VENV
         fi
     fi
-    python${PYTHON_VERSION} -m venv $AIRFLOW_VENV
+    run_as_airflow  python${PYTHON_VERSION} -m venv $AIRFLOW_VENV
 }
 
 #migrate airflow database
 initialize_airflow_db() {
     echo "Migrating Airflow database..."
-    airflow db migrate
+    run_as_airflow airflow db migrate
     echo "Checking if migrations successful..."
-    airflow db check-migrations
-    airflow db check && echo "Initialized Airflow database successfully..."
+    run_as_airflow airflow db check-migrations
+    run_as_airflow airflow db check && echo "Initialized Airflow database successfully..."
 }
 
 setup_airflow() {
@@ -88,7 +107,7 @@ setup_airflow() {
         python3 -m pip install --proxy=http://$proxy_username:$proxy_pass@proxy.toronto.ca:8080 "apache-airflow[${AIRFLOW_EXTRAS}]==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
         echo 'Successfully installed Airflow '`airflow version`
     else
-        python3 -m pip install --upgrade pip
+        run_as_airflow python3 -m pip install --upgrade pip
         echo "Airflow constraints must be manually downloaded and installed from $CONSTRAINT_URL via requirements.in"
     fi
     echo "Successfully installed Airflow ${AIRFLOW_VERSION}"
