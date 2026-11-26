@@ -39,6 +39,9 @@ def send_msg_with_images(client, file_list, msg, channel):
     ids = upload_files(client, file_list)
     blocks = generate_blocks(ids)
 
+    print("The channel is: ", channel)
+    print("------------------------")
+
     response = client.chat_postMessage(
         channel=channel,
         text=msg,
@@ -47,8 +50,12 @@ def send_msg_with_images(client, file_list, msg, channel):
     # get thread id for response
     thread_id = response["ts"]
 
+    print("The thread_id is: ", thread_id)
+    print("------------------------")
+
     max_retries = 5
     for attempt in range(max_retries):
+
         try:
             client.chat_postMessage(
                 text="Graphs for QC:",
@@ -56,17 +63,35 @@ def send_msg_with_images(client, file_list, msg, channel):
                 thread_ts=thread_id,
                 blocks=blocks,
             )
+
+            logging.info(
+                "Successfully posted QC graphs to channel=%s thread=%s",
+                channel,
+                thread_id
+                )
             break  # success, exit retry loop
+
         except SlackApiError as e:
-            error = e.response.get("error")
+            error = e.response.get("error", "unknown_error")
+
+            logging.error(
+                "Slack post failed (attempt %s/%s): %s",
+                attempt + 1,
+                max_retries,
+                error,
+                exc_info=True,
+                )
+            
             if error == "invalid_blocks" and attempt < max_retries - 1:
                 logging.warning(
-                    f"Attempt {attempt + 1}/{max_retries} failed with invalid_blocks "
                     f"— retrying in 5s..."
                 )
                 sleep(
                     5
                 )  # allow some time for files to upload before trying to send
             else:
+                logging.error(
+                "Giving up after %s attempts",
+                attempt + 1)
                 # re-raise if it's a different error or we've exhausted retries
                 raise
