@@ -52,7 +52,7 @@ def send_msg_with_images(client, file_list, msg, channel):
 
         try:
             client.chat_postMessage(
-                text="Graphs for QC:",
+                text="No graphs to display.",
                 channel=channel,
                 thread_ts=thread_id,
                 blocks=blocks,
