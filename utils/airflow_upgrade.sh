@@ -68,7 +68,7 @@ setup_venv() {
             rm -rf $AIRFLOW_VENV
         fi
     fi
-    python3 -m venv $AIRFLOW_VENV
+    python${PYTHON_VERSION} -m venv $AIRFLOW_VENV
 }
 
 #migrate airflow database
@@ -81,7 +81,6 @@ initialize_airflow_db() {
 }
 
 setup_airflow() {
-    PYTHON_VERSION="$(python3 --version | cut -d " " -f 2 | cut -d "." -f 1-2)"
     echo "Installing Airflow ${AIRFLOW_VERSION} on ${PYTHON_VERSION}..."
     CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-no-providers-${PYTHON_VERSION}.txt"
     if [ $ON_PREM_SERVER == 'True' ]; then
@@ -147,6 +146,14 @@ if [ $# -eq 0 ]; then
     exit 128
 else
     source $1
+fi
+if [ -z "${PYTHON_VERSION}" ]; then
+    echo "PYTHON_VERSION must be set in $1 (e.g. PYTHON_VERSION=3.12)"
+    exit 128
+fi
+if ! command -v python${PYTHON_VERSION} >/dev/null 2>&1; then
+    echo "python${PYTHON_VERSION} was not found on this machine"
+    exit 128
 fi
 # 2. proxy username & password for on-prem servers
 if [ ${USE_PROXY,,} == 'true' ]; then
