@@ -108,7 +108,7 @@ setup_airflow() {
         echo 'Successfully installed Airflow '`airflow version`
     else
         run_as_airflow python3 -m pip install --upgrade pip
-        echo "Airflow constraints must be manually downloaded and installed from $CONSTRAINT_URL via requirements.in"
+        echo "Now proceed to sync with requirements.txt in data_scripts."
     fi
     echo "Successfully installed Airflow ${AIRFLOW_VERSION}"
 }
