@@ -39,9 +39,6 @@ def send_msg_with_images(client, file_list, msg, channel):
     ids = upload_files(client, file_list)
     blocks = generate_blocks(ids)
 
-    print("The channel is: ", channel)
-    print("------------------------")
-
     response = client.chat_postMessage(
         channel=channel,
         text=msg,
@@ -49,9 +46,6 @@ def send_msg_with_images(client, file_list, msg, channel):
 
     # get thread id for response
     thread_id = response["ts"]
-
-    print("The thread_id is: ", thread_id)
-    print("------------------------")
 
     max_retries = 5
     for attempt in range(max_retries):
